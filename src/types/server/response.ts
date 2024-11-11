@@ -1,5 +1,21 @@
-import { Link } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export interface AllLinksAPIResponse {
-  links: Array<Link>;
+  links: Array<
+    Prisma.LinkGetPayload<{
+      include: {
+        tags: true;
+      };
+    }>
+  >;
+}
+
+export interface AllTagsAPIResponse {
+  tags: Array<
+    Prisma.TagGetPayload<{
+      include: {
+        links: true;
+      };
+    }>
+  >;
 }

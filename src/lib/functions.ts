@@ -1,10 +1,17 @@
-export const tagsParser = (tags: string) => {
+export const tagsParser = (
+  tags: string
+): Array<{ tagName: string }> | undefined => {
   const rawWords = tags.split(",");
 
-  const pureWords = rawWords.filter((word) => !!word.trim());
+  const pureWords = rawWords
+    .filter((word) => !!word.trim())
+    .map((word) => word.trim());
 
-  const pureWordsObjectArray = pureWords.map((word) => ({
-    tagName: word.trim(),
+  // Prevention of creating duplicating characters
+  const pureWordsSet = new Set(pureWords);
+
+  const pureWordsObjectArray = Array.from(pureWordsSet).map((word) => ({
+    tagName: word,
   }));
 
   return pureWordsObjectArray.length > 0 ? pureWordsObjectArray : undefined;

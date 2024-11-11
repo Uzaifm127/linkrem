@@ -6,10 +6,10 @@ import {
   // Bell,
   ChevronRight,
   ChevronsUpDown,
-  Command,
   // CreditCard,
   LogOut,
   Sparkles,
+  Tag,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,17 +33,28 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  // SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { sidebarPlatformItems } from "@/constants/array";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
+import { fetcher } from "@/lib/fetcher";
+import { AllTagsAPIResponse } from "@/types/server/response";
+import { v4 as uuid } from "uuid";
+import AppIcon from "@/components/ui/app-icon";
 
 const AppSidebar = () => {
   const { data } = useSession();
 
   const pathname = usePathname();
+
+  const tagQuery = useQuery({
+    queryKey: ["tags"],
+    queryFn: async () => await fetcher("/api/tags"),
+  });
+
+  const tagData = tagQuery.data as AllTagsAPIResponse | undefined;
 
   const onLogout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
@@ -55,9 +66,8 @@ const AppSidebar = () => {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Command className="size-4" />
-              </div>
+              <AppIcon className="h-10 w-10" />
+
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <h3 className="truncate font-bold text-2xl">Linkrem</h3>
               </div>
@@ -88,18 +98,32 @@ const AppSidebar = () => {
                         </SidebarMenuButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-white">
-                        <DropdownMenuItem className="cursor-pointer">
-                          Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          Profile
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
-                          Profile
-                        </DropdownMenuItem>
+                        {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
+                        {tagQuery.isFetching || !tagData?.tags?.length ? (
+                          <div className="min-h-32 flex items-center justify-center w-full text-xl font-medium">
+                            {tagQuery.isFetching
+                              ? "Loading..."
+                              : "No Tags found"}
+                          </div>
+                        ) : (
+                          tagData?.tags.map((tag) => (
+                            <DropdownMenuItem
+                              key={tag.id}
+                              className="cursor-pointer"
+                              onClick={() => {
+                                tag.links.map((linkObject) =>
+                                  window.open(
+                                    linkObject.url,
+                                    `_linkrem-${uuid()}`
+                                  )
+                                );
+                              }}
+                            >
+                              <Tag className="h-6 w-6" />
+                              {tag.tagName}
+                            </DropdownMenuItem>
+                          ))
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : (

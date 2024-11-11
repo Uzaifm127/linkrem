@@ -21,8 +21,8 @@ export default function AppLayout({
     <SidebarProvider>
       <Sidebar />
 
-      <main className="w-full">
-        <header className="bg-white p-5 border-b flex justify-between items-center">
+      <main className="w-full relative">
+        <header className="bg-white p-5 border-b flex justify-between items-center sticky top-0 left-0">
           <div className="flex items-center gap-2 md:hidden">
             <SidebarTrigger />
 

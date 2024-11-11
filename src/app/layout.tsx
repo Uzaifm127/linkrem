@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Linkrem",
   description: "Linkrem is a solution for storing links",
+  icons: {
+    icon: "/app-icon.svg",
+  },
 };
 
 export default function RootLayout({

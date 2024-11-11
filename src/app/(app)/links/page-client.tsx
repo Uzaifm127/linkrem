@@ -31,6 +31,7 @@ import { AllLinksAPIResponse } from "@/types/server/response";
 import { useToast } from "@/hooks/use-toast";
 import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
+import { v4 as uuid } from "uuid";
 
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,6 +39,18 @@ const LinksClient = () => {
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
+
+  const linkForm = useForm<LinkForm>({
+    resolver: zodResolver(linkSchema),
+    mode: "onSubmit",
+    defaultValues: {
+      name: "",
+      url: "",
+      tags: "",
+    },
+  });
+
+  const { control, handleSubmit } = linkForm;
 
   const linkQuery = useQuery({
     queryKey: ["links"],
@@ -48,7 +61,7 @@ const LinksClient = () => {
 
   const mutation = useMutation({
     mutationFn: async (linkData: LinkForm) =>
-      await fetcher("/api/link/new", "POST", linkData),
+      await fetcher("/api/link", "POST", linkData),
 
     async onMutate(newLink) {
       // Cancel outgoing refetches
@@ -62,22 +75,19 @@ const LinksClient = () => {
         ["links"],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags)?.map((tag, index) => ({
+            const tags = tagsParser(newLink.tags)?.map((tag) => ({
               ...tag,
-              id: index + 1,
+              id: uuid(),
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));
-
-            // For temporary id of optimistic update
-            const maxId = Math.max(...oldLinks.links.map((link) => link.id));
 
             return {
               links: [
                 ...oldLinks.links,
                 {
                   ...newLink,
-                  id: maxId + 1,
+                  id: uuid(),
                   tags: tags || [],
                   createdAt: new Date(new Date().toISOString()),
                   updatedAt: new Date(new Date().toISOString()),
@@ -120,18 +130,6 @@ const LinksClient = () => {
     },
   });
 
-  const linkForm = useForm<LinkForm>({
-    resolver: zodResolver(linkSchema),
-    mode: "onSubmit",
-    defaultValues: {
-      name: "",
-      url: "",
-      tags: "",
-    },
-  });
-
-  const { control, handleSubmit } = linkForm;
-
   const onSubmit = useCallback(
     (linkData: LinkForm) => {
       mutation.mutate(linkData);
@@ -141,7 +139,7 @@ const LinksClient = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center p-4">
+      <div className="flex justify-between items-center p-4 sticky top-0 left-0 bg-background">
         <Button
           type="button"
           className="bg-accent-foreground hover:bg-accent-foreground/70"
@@ -222,6 +220,7 @@ const LinksClient = () => {
         {data?.links.map((link) => (
           <Link
             key={link.id}
+            id={link.id}
             name={link.name}
             tags={link.tags}
             url={link.url}

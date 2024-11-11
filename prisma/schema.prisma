@@ -7,8 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Using uuid instead of autoincrement for security
 model User {
-  id            Int           @id @default(autoincrement())
+  id            String        @id @default(uuid())
   name          String?
   email         String?       @unique
   emailVerified DateTime?
@@ -20,8 +21,8 @@ model User {
 }
 
 model Account {
-  id                Int     @id @default(autoincrement())
-  userId            Int
+  id                String  @id @default(uuid())
+  userId            String
   provider          String
   providerAccountId String
   type              String
@@ -46,31 +47,43 @@ model VerificationToken {
 
 model HashPassword {
   hashValue String
-  userId    Int    @unique
+  userId    String @unique
   user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Link {
-  id             Int           @id @default(autoincrement())
+  id             String        @id @default(uuid())
   name           String
   url            String
   tags           Tag[]         @relation("LinkTag")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  sessionLinksId Int?
+  sessionLinksId String?
   sessionLinks   SessionLinks? @relation(fields: [sessionLinksId], references: [id], onDelete: Cascade)
+  LinkTag        LinkTag[]
 }
 
 model Tag {
-  id        Int      @id @default(autoincrement())
+  id        String    @id @default(uuid())
   tagName   String
-  links     Link[]   @relation("LinkTag")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  links     Link[]    @relation("LinkTag")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  LinkTag   LinkTag[]
+}
+
+// Might remove afterward if Cascad won't work
+model LinkTag {
+  link   Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  linkId String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  String
+
+  @@id([linkId, tagId])
 }
 
 model SessionLinks {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   name      String
   links     Link[]
   createdAt DateTime @default(now())
