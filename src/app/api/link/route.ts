@@ -20,7 +20,10 @@ export const POST = async (req: NextRequest) => {
         // Optionally creating tags
         ...(tagsObjectArray && {
           tags: {
-            create: tagsObjectArray,
+            connectOrCreate: tagsObjectArray.map((tag) => ({
+              where: { tagName: tag.tagName },
+              create: { ...tag },
+            })),
           },
         }),
       },
@@ -30,6 +33,7 @@ export const POST = async (req: NextRequest) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
+    console.log(error);
     return NextResponse.json({ message: error.message }, { status: 400 });
   }
 };
@@ -42,29 +46,27 @@ export const PUT = async (req: NextRequest) => {
       throw new Error("Invalid Name or URL");
     }
 
-    if (!id) {
-      throw new Error("Link doesn't exist");
-    }
-
     const tagsObjectArray = tagsParser(tags);
 
-    await prisma.link.upsert({
+    await prisma.link.update({
       where: {
         id,
       },
 
-      update: {
+      data: {
         name,
         url,
         tags: {
-          set: !!tagsObjectArray ? tagsObjectArray : [],
-        },
-      },
-      create: {
-        name,
-        url,
-        tags: {
-          set: !!tagsObjectArray ? tagsObjectArray : [],
+          ...(tagsObjectArray
+            ? {
+                connectOrCreate: tagsObjectArray?.map((tag) => ({
+                  where: { tagName: tag.tagName },
+                  create: { ...tag },
+                })),
+              }
+            : {
+                set: [],
+              }),
         },
       },
     });

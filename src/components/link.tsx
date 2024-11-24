@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { v4 as uuid } from "uuid";
 
 const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -63,38 +64,46 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
 
     async onMutate(newLink) {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["links"] });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["links"] }),
+        queryClient.cancelQueries({ queryKey: ["tags"] }),
+      ]);
 
       // Getting the previous links
       const previousLinks = queryClient.getQueryData(["links"]);
+
+      // Getting the previous tags associated with that link
+      const previousTags = queryClient.getQueryData(["tags"]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
         ["links"],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags)?.map((tag, index) => ({
+            const tags = tagsParser(newLink.tags)?.map((tag) => ({
               ...tag,
-              id: index + 1,
+              id: uuid(),
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));
 
-            // For temporary id of optimistic update
-            const maxId = Math.max(...oldLinks.links.map((link) => link.id));
-
-            return {
-              links: [
-                ...oldLinks.links,
-                {
-                  ...newLink,
-                  id: maxId + 1,
+            const updatedLinks = oldLinks.links.map((link) => {
+              if (link.id === id) {
+                return {
+                  id: uuid(),
+                  name: newLink.name,
+                  url: newLink.url,
                   tags: tags || [],
+                  sessionLinksId: null,
                   createdAt: new Date(new Date().toISOString()),
                   updatedAt: new Date(new Date().toISOString()),
-                },
-              ],
-            };
+                };
+              } else {
+                return link;
+              }
+            });
+
+            return { links: updatedLinks };
           }
         }
       );
@@ -103,7 +112,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
       updateLinkForm.reset();
 
       // Return the context with previous value
-      return { previousLinks };
+      return { previousLinks, previousTags };
     },
 
     onError(_error, _newLink, context) {
@@ -122,11 +131,13 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
         });
 
         queryClient.setQueryData(["links"], context.previousLinks);
+        queryClient.setQueryData(["tags"], context.previousTags);
       }
     },
 
     onSettled() {
       queryClient.invalidateQueries({ queryKey: ["links"] });
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
 

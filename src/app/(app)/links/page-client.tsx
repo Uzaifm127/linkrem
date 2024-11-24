@@ -27,7 +27,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { linkSchema } from "@/lib/zod-schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
-import { AllLinksAPIResponse } from "@/types/server/response";
+import {
+  AllLinksAPIResponse,
+  AllTagsAPIResponse,
+} from "@/types/server/response";
 import { useToast } from "@/hooks/use-toast";
 import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
@@ -39,6 +42,13 @@ const LinksClient = () => {
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
+
+  const linkQuery = useQuery({
+    queryKey: ["links"],
+    queryFn: async () => await fetcher("/api/link/all"),
+  });
+
+  const data = linkQuery.data as AllLinksAPIResponse | undefined;
 
   const linkForm = useForm<LinkForm>({
     resolver: zodResolver(linkSchema),
@@ -52,23 +62,22 @@ const LinksClient = () => {
 
   const { control, handleSubmit } = linkForm;
 
-  const linkQuery = useQuery({
-    queryKey: ["links"],
-    queryFn: async () => await fetcher("/api/link/all"),
-  });
-
-  const { data }: { data: AllLinksAPIResponse | undefined } = linkQuery;
-
   const mutation = useMutation({
     mutationFn: async (linkData: LinkForm) =>
       await fetcher("/api/link", "POST", linkData),
 
     async onMutate(newLink) {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["links"] });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["links"] }),
+        queryClient.cancelQueries({ queryKey: ["tags"] }),
+      ]);
 
       // Getting the previous links
       const previousLinks = queryClient.getQueryData(["links"]);
+
+      // Getting the previous tags associated with that link
+      const previousTags = queryClient.getQueryData(["tags"]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
@@ -86,9 +95,11 @@ const LinksClient = () => {
               links: [
                 ...oldLinks.links,
                 {
-                  ...newLink,
                   id: uuid(),
+                  name: newLink.name,
+                  url: newLink.url,
                   tags: tags || [],
+                  sessionLinksId: null,
                   createdAt: new Date(new Date().toISOString()),
                   updatedAt: new Date(new Date().toISOString()),
                 },
@@ -98,11 +109,44 @@ const LinksClient = () => {
         }
       );
 
+      queryClient.setQueryData(
+        ["tags"],
+        (oldTags: AllTagsAPIResponse | undefined) => {
+          if (oldTags) {
+            const link = {
+              id: uuid(),
+              name: newLink.name,
+              url: newLink.url,
+              sessionLinksId: null,
+              createdAt: new Date(new Date().toISOString()),
+              updatedAt: new Date(new Date().toISOString()),
+            };
+
+            const tags = tagsParser(newLink.tags);
+
+            const newTags = tags
+              ?.map((tag) => ({
+                id: uuid(),
+                tagName: tag.tagName,
+                links: [link],
+                createdAt: new Date(new Date().toISOString()),
+                updatedAt: new Date(new Date().toISOString()),
+              }))
+              // Parsed tags and raw tags will be same so we can use one of them.
+              .filter((tag) => !newLink.tags.includes(tag.tagName));
+
+            return {
+              tags: [...oldTags.tags, ...(newTags ? newTags : [])],
+            };
+          }
+        }
+      );
+
       setDialogOpen(false);
       linkForm.reset();
 
       // Return the context with previous value
-      return { previousLinks };
+      return { previousLinks, previousTags };
     },
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,19 +166,49 @@ const LinksClient = () => {
         });
 
         queryClient.setQueryData(["links"], context.previousLinks);
+        queryClient.setQueryData(["tags"], context.previousTags);
       }
     },
 
     onSettled() {
       queryClient.invalidateQueries({ queryKey: ["links"] });
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
 
+  // This submit func will call only after the data of links have been fetched
   const onSubmit = useCallback(
     (linkData: LinkForm) => {
+      const nameExist = data!.links.some((link) => link.name === linkData.name);
+      const URLExist = data!.links.some((link) => link.url === linkData.url);
+
+      if (nameExist || URLExist) {
+        return toast({
+          title: `${nameExist ? "Link name" : "Link URL"} already exist`,
+          action: (
+            <ToastAction
+              altText="Try again"
+              onClick={() => {
+                if (nameExist && URLExist) {
+                  linkForm.reset({ name: "", url: "" });
+                } else if (URLExist) {
+                  linkForm.resetField("url");
+                } else if (nameExist) {
+                  linkForm.resetField("name");
+                }
+              }}
+            >
+              Try again
+            </ToastAction>
+          ),
+          variant: "destructive",
+        });
+      }
+
+      // Checking duplication link name and url is remaining on server but client side validation done.
       mutation.mutate(linkData);
     },
-    [mutation]
+    [mutation, data, linkForm, toast]
   );
 
   return (
@@ -149,7 +223,11 @@ const LinksClient = () => {
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button type="button" className="bg-accent hover:bg-accent/90">
+            <Button
+              type="button"
+              className="bg-accent hover:bg-accent/90"
+              disabled={linkQuery.isFetching}
+            >
               Add
               <Plus />
             </Button>
@@ -226,57 +304,6 @@ const LinksClient = () => {
             url={link.url}
           />
         ))}
-
-        {/* <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        />
-        <Link
-          name="slfkjsd"
-          tags={["lsdjf", "laksdfj"]}
-          url="alsdkfjs;lfjfsdlfj"
-        /> */}
       </div>
     </div>
   );

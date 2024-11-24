@@ -12,7 +12,7 @@ export const fetcher = async <BodyType>(
     throw new Error(`Req body is missing in ${method} method`);
   }
 
-  if (method === "POST") {
+  if (method !== "GET") {
     response = await fetch(url, { method, body: JSON.stringify(body) });
   } else {
     response = await fetch(url);

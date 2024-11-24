@@ -5,6 +5,7 @@ export interface AllLinksAPIResponse {
     Prisma.LinkGetPayload<{
       include: {
         tags: true;
+        // sessionLinks: true;
       };
     }>
   >;
