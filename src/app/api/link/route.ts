@@ -40,7 +40,8 @@ export const POST = async (req: NextRequest) => {
 
 export const PUT = async (req: NextRequest) => {
   try {
-    const { name, url, tags, id }: UpdateLinkRequest = await req.json();
+    const { name, url, tags, currentLinkName }: UpdateLinkRequest =
+      await req.json();
 
     if (!name || !url) {
       throw new Error("Invalid Name or URL");
@@ -50,7 +51,8 @@ export const PUT = async (req: NextRequest) => {
 
     await prisma.link.update({
       where: {
-        id,
+        // Name because we aren't invalidating the query by react query so id might be different
+        name: currentLinkName,
       },
 
       data: {

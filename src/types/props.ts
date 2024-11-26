@@ -1,5 +1,4 @@
 export interface LinkProps {
-  id: string;
   name: string;
   tags: Array<{
     id: string;

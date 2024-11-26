@@ -39,7 +39,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { v4 as uuid } from "uuid";
 
-const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
+const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { toast } = useToast();
@@ -60,7 +60,10 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
 
   const updateMutation = useMutation({
     mutationFn: async (linkUpdatedData: LinkForm) =>
-      await fetcher("/api/link", "PUT", { id, ...linkUpdatedData }),
+      await fetcher("/api/link", "PUT", {
+        currentLinkName: name,
+        ...linkUpdatedData,
+      }),
 
     async onMutate(newLink) {
       // Cancel outgoing refetches
@@ -88,7 +91,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
             }));
 
             const updatedLinks = oldLinks.links.map((link) => {
-              if (link.id === id) {
+              if (link.name === name) {
                 return {
                   id: uuid(),
                   name: newLink.name,
@@ -136,22 +139,37 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
     },
 
     onSettled() {
-      queryClient.invalidateQueries({ queryKey: ["links"] });
+      // queryClient.invalidateQueries({ queryKey: ["links"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
 
+  // Link data must be there when we submit for update query
   const onSubmit = useCallback(
     (updatedLinkData: LinkForm) => {
-      updateMutation.mutate(updatedLinkData);
+      // Mutation happens when there is a change
+      const parsedTags = tagsParser(updatedLinkData.tags);
+
+      const currentTags = tags.map((tag) => ({ tagName: tag.tagName }));
+
+      if (
+        name !== updatedLinkData.name ||
+        url !== updatedLinkData.url ||
+        JSON.stringify(parsedTags) !== JSON.stringify(currentTags)
+      ) {
+        // Checking duplication link name and url is remaining on server but client side validation done.
+        updateMutation.mutate(updatedLinkData);
+      } else {
+        setDialogOpen(false);
+      }
     },
-    [updateMutation]
+    [updateMutation, name, tags, url]
   );
   return (
     <Card className="bg-white flex flex-col justify-between">
       <div>
         <CardHeader>
-          <CardTitle className="flex justify-between">
+          <CardTitle className="flex justify-between items-start">
             {name}{" "}
             <div className="flex gap-1 items-center">
               <Edit
@@ -166,9 +184,9 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, id }) => {
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add New Link</DialogTitle>
+                  <DialogTitle>Update the Link</DialogTitle>
                   <DialogDescription>
-                    Enter the details of the link you want to save.
+                    Enter the details of the link you want to update.
                   </DialogDescription>
                 </DialogHeader>
 

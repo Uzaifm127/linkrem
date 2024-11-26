@@ -5,7 +5,7 @@ export interface CreateLinkRequest {
 }
 
 export interface UpdateLinkRequest extends CreateLinkRequest {
-  id: string;
+  currentLinkName: string;
 }
 
 export type HttpMethods = "GET" | "POST" | "PUT" | "DELETE";

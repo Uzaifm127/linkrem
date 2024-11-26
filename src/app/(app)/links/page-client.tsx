@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Filter, Plus } from "lucide-react";
 import Link from "@/components/link";
@@ -35,9 +35,12 @@ import { useToast } from "@/hooks/use-toast";
 import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
+import { useAppStore } from "@/store";
 
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { linkData, setLinkData } = useAppStore();
 
   const { toast } = useToast();
 
@@ -47,8 +50,6 @@ const LinksClient = () => {
     queryKey: ["links"],
     queryFn: async () => await fetcher("/api/link/all"),
   });
-
-  const data = linkQuery.data as AllLinksAPIResponse | undefined;
 
   const linkForm = useForm<LinkForm>({
     resolver: zodResolver(linkSchema),
@@ -170,17 +171,25 @@ const LinksClient = () => {
       }
     },
 
-    onSettled() {
-      queryClient.invalidateQueries({ queryKey: ["links"] });
-      queryClient.invalidateQueries({ queryKey: ["tags"] });
-    },
+    // onSettled() {
+    //   queryClient.invalidateQueries({ queryKey: ["links"] });
+    //   queryClient.invalidateQueries({ queryKey: ["tags"] });
+    // },
   });
+
+  useEffect(() => {
+    setLinkData(linkQuery.data as AllLinksAPIResponse | undefined);
+  }, [linkQuery.data, setLinkData]);
 
   // This submit func will call only after the data of links have been fetched
   const onSubmit = useCallback(
-    (linkData: LinkForm) => {
-      const nameExist = data!.links.some((link) => link.name === linkData.name);
-      const URLExist = data!.links.some((link) => link.url === linkData.url);
+    (linkFormData: LinkForm) => {
+      const nameExist = linkData!.links.some(
+        (link) => link.name === linkFormData.name
+      );
+      const URLExist = linkData!.links.some(
+        (link) => link.url === linkFormData.url
+      );
 
       if (nameExist || URLExist) {
         return toast({
@@ -206,9 +215,9 @@ const LinksClient = () => {
       }
 
       // Checking duplication link name and url is remaining on server but client side validation done.
-      mutation.mutate(linkData);
+      mutation.mutate(linkFormData);
     },
-    [mutation, data, linkForm, toast]
+    [mutation, linkData, linkForm, toast]
   );
 
   return (
@@ -226,7 +235,7 @@ const LinksClient = () => {
             <Button
               type="button"
               className="bg-accent hover:bg-accent/90"
-              disabled={linkQuery.isFetching}
+              disabled={linkQuery.isLoading}
             >
               Add
               <Plus />
@@ -295,10 +304,9 @@ const LinksClient = () => {
       </div>
 
       <div className="grid lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
-        {data?.links.map((link) => (
+        {linkData?.links.map((link) => (
           <Link
             key={link.id}
-            id={link.id}
             name={link.name}
             tags={link.tags}
             url={link.url}

@@ -41,8 +41,8 @@ import { signOut, useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import { AllTagsAPIResponse } from "@/types/server/response";
-import { v4 as uuid } from "uuid";
 import AppIcon from "@/components/ui/app-icon";
+import { openLinks } from "@/lib/server-actions/open-links";
 
 const AppSidebar = () => {
   const { data } = useSession();
@@ -99,9 +99,9 @@ const AppSidebar = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-white">
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
-                        {tagQuery.isFetching || !tagData?.tags?.length ? (
+                        {tagQuery.isLoading || !tagData?.tags?.length ? (
                           <div className="min-h-32 flex items-center justify-center w-full text-xl font-medium">
-                            {tagQuery.isFetching
+                            {tagQuery.isLoading
                               ? "Loading..."
                               : "No Tags found"}
                           </div>
@@ -110,14 +110,14 @@ const AppSidebar = () => {
                             <DropdownMenuItem
                               key={tag.id}
                               className="cursor-pointer"
-                              onClick={() => {
-                                tag.links.map((linkObject) =>
-                                  window.open(
-                                    linkObject.url,
-                                    `_linkrem-${uuid()}`
-                                  )
+                              onClick={async () => {
+                                const linksStringArray = tag.links.map(
+                                  (link) => link.url
                                 );
+
+                                await openLinks(linksStringArray);
                               }}
+                              disabled={tagQuery.isFetching}
                             >
                               <Tag className="h-6 w-6" />
                               {tag.tagName}
