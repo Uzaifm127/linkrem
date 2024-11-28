@@ -1,6 +1,12 @@
-export const tagsParser = (
-  tags: string
-): Array<{ tagName: string }> | undefined => {
+// extends work as a type constraint here
+export const tagsParser = <Type extends boolean>(
+  tags: string,
+  raw: Type
+):
+  | (Type extends true ? Array<string> : Array<{ tagName: string }>)
+  | undefined => {
+  let wordsArray = [];
+
   const rawWords = tags.split(",");
 
   const pureWords = rawWords
@@ -10,9 +16,14 @@ export const tagsParser = (
   // Prevention of creating duplicating characters
   const pureWordsSet = new Set(pureWords);
 
-  const pureWordsObjectArray = Array.from(pureWordsSet).map((word) => ({
-    tagName: word,
-  }));
+  if (raw) {
+    wordsArray = Array.from(pureWordsSet);
+  } else {
+    wordsArray = Array.from(pureWordsSet).map((word) => ({
+      tagName: word,
+    }));
+  }
 
-  return pureWordsObjectArray.length > 0 ? pureWordsObjectArray : undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return wordsArray.length > 0 ? (wordsArray as any) : undefined;
 };

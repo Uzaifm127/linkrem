@@ -7,6 +7,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { LinkProps } from "@/types/props";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +49,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { v4 as uuid } from "uuid";
+import { useAppStore } from "@/store";
+import Cookies from "js-cookie";
+import { deletePopupCookieKey } from "@/constants/cookie-keys";
 
 const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Extracting user preferences from cookies
+  const dontShowDeletePopup = Cookies.get(deletePopupCookieKey);
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deletePopupCheck, setDeletePopupCheck] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const { setTagMutationLoading } = useAppStore();
 
   const { toast } = useToast();
 
@@ -66,6 +87,9 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
       }),
 
     async onMutate(newLink) {
+      // Doing mutation for links but also disabling the tags
+      setTagMutationLoading(true);
+
       // Cancel outgoing refetches
       await Promise.all([
         queryClient.cancelQueries({ queryKey: ["links"] }),
@@ -83,7 +107,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
         ["links"],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags)?.map((tag) => ({
+            const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
               ...tag,
               id: uuid(),
               createdAt: new Date(new Date().toISOString()),
@@ -111,7 +135,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
         }
       );
 
-      setDialogOpen(false);
+      setEditDialogOpen(false);
       updateLinkForm.reset();
 
       // Return the context with previous value
@@ -125,7 +149,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
           action: (
             <ToastAction
               altText="Try again"
-              onClick={() => setDialogOpen(true)}
+              onClick={() => setEditDialogOpen(true)}
             >
               Try again
             </ToastAction>
@@ -138,9 +162,86 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
       }
     },
 
-    onSettled() {
+    async onSettled(_data, error) {
       // queryClient.invalidateQueries({ queryKey: ["links"] });
-      queryClient.invalidateQueries({ queryKey: ["tags"] });
+
+      // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      }
+      setTagMutationLoading(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (currentLinkName: string) =>
+      await fetcher("/api/link", "DELETE", { currentLinkName } as {
+        currentLinkName: string;
+      }),
+
+    async onMutate(currentLinkName) {
+      // Doing mutation for links but also disabling the tags
+      setTagMutationLoading(true);
+
+      // Cancel outgoing refetches
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["links"] }),
+        queryClient.cancelQueries({ queryKey: ["tags"] }),
+      ]);
+
+      // Getting the previous links
+      const previousLinks = queryClient.getQueryData(["links"]);
+
+      // Getting the previous tags associated with that link
+      const previousTags = queryClient.getQueryData(["tags"]);
+
+      // Optimistically updating the query data
+      queryClient.setQueryData(
+        ["links"],
+        (oldLinks: AllLinksAPIResponse | undefined) => {
+          if (oldLinks) {
+            const updatedLinks = oldLinks.links.filter(
+              (link) => link.name !== currentLinkName
+            );
+
+            return { links: updatedLinks };
+          }
+        }
+      );
+
+      setDeleteDialogOpen(false);
+
+      // Setting up the user preference, If any
+      if (deletePopupCheck) {
+        Cookies.set(deletePopupCookieKey, "yes", {
+          expires: 30,
+        });
+      }
+
+      // Return the context with previous value
+      return { previousLinks, previousTags };
+    },
+
+    onError(_error, _newLink, context) {
+      if (context) {
+        toast({
+          title: "Something went wrong",
+          variant: "destructive",
+        });
+
+        queryClient.setQueryData(["links"], context.previousLinks);
+        queryClient.setQueryData(["tags"], context.previousTags);
+      }
+    },
+
+    async onSettled(_data, error) {
+      // queryClient.invalidateQueries({ queryKey: ["links"] });
+
+      // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      }
+      setTagMutationLoading(false);
     },
   });
 
@@ -148,7 +249,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
   const onSubmit = useCallback(
     (updatedLinkData: LinkForm) => {
       // Mutation happens when there is a change
-      const parsedTags = tagsParser(updatedLinkData.tags);
+      const parsedTags = tagsParser(updatedLinkData.tags, false);
 
       const currentTags = tags.map((tag) => ({ tagName: tag.tagName }));
 
@@ -160,11 +261,12 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
         // Checking duplication link name and url is remaining on server but client side validation done.
         updateMutation.mutate(updatedLinkData);
       } else {
-        setDialogOpen(false);
+        setEditDialogOpen(false);
       }
     },
     [updateMutation, name, tags, url]
   );
+
   return (
     <Card className="bg-white flex flex-col justify-between">
       <div>
@@ -174,14 +276,20 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
             <div className="flex gap-1 items-center">
               <Edit
                 className="h-7 w-7 rounded-sm transition cursor-pointer text-text-foreground hover:bg-slate-100 p-1"
-                onClick={() => setDialogOpen(true)}
+                onClick={() => setEditDialogOpen(true)}
               />
               <Trash2
-                className="h-7 w-7 rounded-sm transition text-red-600 cursor-pointer hover:bg-red-300 p-1"
-                onClick={() => {}}
+                className="h-7 w-7 rounded-sm transition text-red-600 cursor-pointer hover:bg-red-200 p-1"
+                onClick={() => {
+                  if (!!dontShowDeletePopup) {
+                    deleteMutation.mutate(name);
+                  } else {
+                    setDeleteDialogOpen(true);
+                  }
+                }}
               />
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Update the Link</DialogTitle>
@@ -242,6 +350,48 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
                 </Form>
               </DialogContent>
             </Dialog>
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={setDeleteDialogOpen}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete your link and remove your link
+                    data from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="dont-show-again"
+                    checked={deletePopupCheck}
+                    onCheckedChange={(checked) => {
+                      if (typeof checked === "boolean") {
+                        setDeletePopupCheck(checked);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="dont-show-again"
+                    className="text-sm font-medium cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Don&apos;t show again
+                  </label>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="hover:bg-accent-foreground/20 hover:text-text">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive/20 text-destructive border border-destructive hover:bg-destructive/40"
+                    onClick={() => deleteMutation.mutate(name)}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardTitle>
           <CardDescription>{url}</CardDescription>
         </CardHeader>

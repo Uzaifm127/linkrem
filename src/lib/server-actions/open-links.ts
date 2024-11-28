@@ -1,10 +1,9 @@
 "use server";
 
 import { exec } from "node:child_process";
-import os from "node:os";
 
 export const openLinks = async (links: Array<string>) => {
-  const operatingSystem = os.platform();
+  const operatingSystem = process.platform;
   let osSpecificCommand = "start";
 
   switch (operatingSystem) {

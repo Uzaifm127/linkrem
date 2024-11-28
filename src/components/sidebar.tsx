@@ -43,9 +43,12 @@ import { fetcher } from "@/lib/fetcher";
 import { AllTagsAPIResponse } from "@/types/server/response";
 import AppIcon from "@/components/ui/app-icon";
 import { openLinks } from "@/lib/server-actions/open-links";
+import { useAppStore } from "@/store";
 
 const AppSidebar = () => {
   const { data } = useSession();
+
+  const { tagMutationLoading } = useAppStore();
 
   const pathname = usePathname();
 
@@ -117,7 +120,7 @@ const AppSidebar = () => {
 
                                 await openLinks(linksStringArray);
                               }}
-                              disabled={tagQuery.isFetching}
+                              disabled={tagMutationLoading}
                             >
                               <Tag className="h-6 w-6" />
                               {tag.tagName}

@@ -27,10 +27,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { linkSchema } from "@/lib/zod-schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
-import {
-  AllLinksAPIResponse,
-  AllTagsAPIResponse,
-} from "@/types/server/response";
+import { AllLinksAPIResponse } from "@/types/server/response";
 import { useToast } from "@/hooks/use-toast";
 import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
@@ -40,7 +37,7 @@ import { useAppStore } from "@/store";
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { linkData, setLinkData } = useAppStore();
+  const { linkData, setLinkData, setTagMutationLoading } = useAppStore();
 
   const { toast } = useToast();
 
@@ -68,6 +65,9 @@ const LinksClient = () => {
       await fetcher("/api/link", "POST", linkData),
 
     async onMutate(newLink) {
+      // Doing mutation for links but also disabling the tags
+      setTagMutationLoading(true);
+
       // Cancel outgoing refetches
       await Promise.all([
         queryClient.cancelQueries({ queryKey: ["links"] }),
@@ -85,7 +85,7 @@ const LinksClient = () => {
         ["links"],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags)?.map((tag) => ({
+            const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
               ...tag,
               id: uuid(),
               createdAt: new Date(new Date().toISOString()),
@@ -110,38 +110,38 @@ const LinksClient = () => {
         }
       );
 
-      queryClient.setQueryData(
-        ["tags"],
-        (oldTags: AllTagsAPIResponse | undefined) => {
-          if (oldTags) {
-            const link = {
-              id: uuid(),
-              name: newLink.name,
-              url: newLink.url,
-              sessionLinksId: null,
-              createdAt: new Date(new Date().toISOString()),
-              updatedAt: new Date(new Date().toISOString()),
-            };
+      // queryClient.setQueryData(
+      //   ["tags"],
+      //   (oldTags: AllTagsAPIResponse | undefined) => {
+      //     if (oldTags) {
+      //       const link = {
+      //         id: uuid(),
+      //         name: newLink.name,
+      //         url: newLink.url,
+      //         sessionLinksId: null,
+      //         createdAt: new Date(new Date().toISOString()),
+      //         updatedAt: new Date(new Date().toISOString()),
+      //       };
 
-            const tags = tagsParser(newLink.tags);
+      //       const tags = tagsParser(newLink.tags, true);
 
-            const newTags = tags
-              ?.map((tag) => ({
-                id: uuid(),
-                tagName: tag.tagName,
-                links: [link],
-                createdAt: new Date(new Date().toISOString()),
-                updatedAt: new Date(new Date().toISOString()),
-              }))
-              // Parsed tags and raw tags will be same so we can use one of them.
-              .filter((tag) => !newLink.tags.includes(tag.tagName));
+      //       const newTags = tags
+      //         ?.map((tag) => ({
+      //           id: uuid(),
+      //           tagName: tag,
+      //           links: [link],
+      //           createdAt: new Date(new Date().toISOString()),
+      //           updatedAt: new Date(new Date().toISOString()),
+      //         }))
+      //         // Parsed tags and raw tags will be same so we can use one of them.
+      //         .filter((tag) => !newLink.tags.includes(tag.tagName));
 
-            return {
-              tags: [...oldTags.tags, ...(newTags ? newTags : [])],
-            };
-          }
-        }
-      );
+      //       return {
+      //         tags: [...oldTags.tags, ...(newTags ? newTags : [])],
+      //       };
+      //     }
+      //   }
+      // );
 
       setDialogOpen(false);
       linkForm.reset();
@@ -171,10 +171,15 @@ const LinksClient = () => {
       }
     },
 
-    // onSettled() {
-    //   queryClient.invalidateQueries({ queryKey: ["links"] });
-    //   queryClient.invalidateQueries({ queryKey: ["tags"] });
-    // },
+    async onSettled(_data, error) {
+      // queryClient.invalidateQueries({ queryKey: ["links"] });
+
+      // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      }
+      setTagMutationLoading(false);
+    },
   });
 
   useEffect(() => {
