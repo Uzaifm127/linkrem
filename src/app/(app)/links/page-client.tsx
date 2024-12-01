@@ -20,6 +20,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { LinkForm } from "@/types";
@@ -33,19 +40,38 @@ import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
+import {
+  linkQueryKey,
+  sessionQueryKey,
+  tagQueryKey,
+} from "@/constants/query-keys";
+
+type TabValueType = "links" | "sessions";
 
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [addDropdownOpen, setAddDropdownOpen] = useState(false);
+  const [tabValue, setTabValue] = useState<TabValueType>("links");
 
-  const { linkData, setLinkData, setTagMutationLoading } = useAppStore();
+  const { linkData, setLinkData, setTagMutationLoading, headerHeight } =
+    useAppStore();
 
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
 
+  // Querying for links
   const linkQuery = useQuery({
-    queryKey: ["links"],
+    queryKey: [linkQueryKey],
     queryFn: async () => await fetcher("/api/link/all"),
+    enabled: tabValue === "links",
+  });
+
+  // Querying for sessions
+  const sessionQuery = useQuery({
+    queryKey: [sessionQueryKey],
+    queryFn: async () => await fetcher("/api/sessions"),
+    enabled: tabValue === "sessions",
   });
 
   const linkForm = useForm<LinkForm>({
@@ -70,19 +96,19 @@ const LinksClient = () => {
 
       // Cancel outgoing refetches
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: ["links"] }),
-        queryClient.cancelQueries({ queryKey: ["tags"] }),
+        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
+        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
       ]);
 
       // Getting the previous links
-      const previousLinks = queryClient.getQueryData(["links"]);
+      const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData(["tags"]);
+      const previousTags = queryClient.getQueryData([tagQueryKey]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
-        ["links"],
+        [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
             const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
@@ -110,41 +136,10 @@ const LinksClient = () => {
         }
       );
 
-      // queryClient.setQueryData(
-      //   ["tags"],
-      //   (oldTags: AllTagsAPIResponse | undefined) => {
-      //     if (oldTags) {
-      //       const link = {
-      //         id: uuid(),
-      //         name: newLink.name,
-      //         url: newLink.url,
-      //         sessionLinksId: null,
-      //         createdAt: new Date(new Date().toISOString()),
-      //         updatedAt: new Date(new Date().toISOString()),
-      //       };
-
-      //       const tags = tagsParser(newLink.tags, true);
-
-      //       const newTags = tags
-      //         ?.map((tag) => ({
-      //           id: uuid(),
-      //           tagName: tag,
-      //           links: [link],
-      //           createdAt: new Date(new Date().toISOString()),
-      //           updatedAt: new Date(new Date().toISOString()),
-      //         }))
-      //         // Parsed tags and raw tags will be same so we can use one of them.
-      //         .filter((tag) => !newLink.tags.includes(tag.tagName));
-
-      //       return {
-      //         tags: [...oldTags.tags, ...(newTags ? newTags : [])],
-      //       };
-      //     }
-      //   }
-      // );
-
       setDialogOpen(false);
       linkForm.reset();
+      // Closing dropdown after closing dialog
+      setAddDropdownOpen(false);
 
       // Return the context with previous value
       return { previousLinks, previousTags };
@@ -166,17 +161,17 @@ const LinksClient = () => {
           variant: "destructive",
         });
 
-        queryClient.setQueryData(["links"], context.previousLinks);
-        queryClient.setQueryData(["tags"], context.previousTags);
+        queryClient.setQueryData([linkQueryKey], context.previousLinks);
+        queryClient.setQueryData([tagQueryKey], context.previousTags);
       }
     },
 
     async onSettled(_data, error) {
-      // queryClient.invalidateQueries({ queryKey: ["links"] });
+      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
       }
       setTagMutationLoading(false);
     },
@@ -227,7 +222,10 @@ const LinksClient = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center p-4 sticky top-0 left-0 bg-background">
+      <div
+        className="flex justify-between items-center p-4 sticky left-0 bg-background"
+        style={{ top: `${headerHeight}px` }}
+      >
         <Button
           type="button"
           className="bg-accent-foreground hover:bg-accent-foreground/70"
@@ -235,77 +233,117 @@ const LinksClient = () => {
           <Filter /> Filter
         </Button>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              type="button"
-              className="bg-accent hover:bg-accent/90"
-              disabled={linkQuery.isLoading}
-            >
-              Add
-              <Plus />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Link</DialogTitle>
-              <DialogDescription>
-                Enter the details of the link you want to save.
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex gap-4">
+          <Tabs
+            value={tabValue}
+            onValueChange={(value) => setTabValue(value as TabValueType)}
+          >
+            <TabsList className="bg-white rounded-md">
+              <TabsTrigger className="rounded-sm" value="sessions">
+                Session
+              </TabsTrigger>
+              <TabsTrigger className="rounded-sm" value="links">
+                Link
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-            <Form {...linkForm}>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-                <FormField
-                  control={control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Link name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <DropdownMenu
+            open={addDropdownOpen}
+            onOpenChange={setAddDropdownOpen}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                className="bg-white hover:bg-slate-100"
+                disabled={linkQuery.isLoading}
+                size={"icon"}
+              >
+                <Plus className="text-text" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {/* Dropdown item for opening add link dialog */}
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDialogOpen(true);
+                    }}
+                  >
+                    Add link
+                  </DropdownMenuItem>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Link</DialogTitle>
+                    <DialogDescription>
+                      Enter the details of the link you want to save.
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <FormField
-                  control={control}
-                  name="url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="URL" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <Form {...linkForm}>
+                    <form
+                      onSubmit={handleSubmit(onSubmit)}
+                      className="space-y-3"
+                    >
+                      <FormField
+                        control={control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Link name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                <FormField
-                  control={control}
-                  name="tags"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tags {"(optional)"}</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Comma-separated tags, e.g. workspace, products, new"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <FormField
+                        control={control}
+                        name="url"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="URL" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                <Button type="submit">Save Link</Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                      <FormField
+                        control={control}
+                        name="tags"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tags {"(optional)"}</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="Comma-separated tags, e.g. workspace, products, new"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Button type="submit">Save Link</Button>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+
+              {/* For Saving sessions */}
+              <DropdownMenuItem>Add session</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">

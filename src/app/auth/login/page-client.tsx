@@ -37,7 +37,7 @@ const LoginClient = () => {
     <div className="border rounded-lg p-5 sm:p-10 space-y-8 w-[20rem] sm:w-[24rem] md:w-[26rem] bg-white">
       <Button
         type="button"
-        className="flex w-full items-center gap-3"
+        className="flex w-full items-center gap-3 bg-white hover:bg-slate-50 text-text border shadow-none"
         onClick={async () => await signIn("google", { callbackUrl: "/links" })}
       >
         <GoogleIcon className="h-6 w-6" />
@@ -45,9 +45,9 @@ const LoginClient = () => {
       </Button>
 
       <div className="flex items-center justify-center w-full text-text-foreground gap-2">
-        <Separator className="w-auto" />
+        <Separator className="shrink" />
         or
-        <Separator className="w-1/2" />
+        <Separator className="shrink" />
       </div>
 
       <Form {...loginForm}>

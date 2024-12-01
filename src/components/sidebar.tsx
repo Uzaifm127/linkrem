@@ -29,7 +29,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
-  // SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -44,6 +43,7 @@ import { AllTagsAPIResponse } from "@/types/server/response";
 import AppIcon from "@/components/ui/app-icon";
 import { openLinks } from "@/lib/server-actions/open-links";
 import { useAppStore } from "@/store";
+import { tagQueryKey } from "@/constants/query-keys";
 
 const AppSidebar = () => {
   const { data } = useSession();
@@ -53,7 +53,7 @@ const AppSidebar = () => {
   const pathname = usePathname();
 
   const tagQuery = useQuery({
-    queryKey: ["tags"],
+    queryKey: [tagQueryKey],
     queryFn: async () => await fetcher("/api/tags"),
   });
 
@@ -86,7 +86,7 @@ const AppSidebar = () => {
               return (
                 <SidebarMenuItem key={item.id}>
                   {item.items ? (
-                    <DropdownMenu>
+                    <DropdownMenu >
                       <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                           asChild
@@ -100,7 +100,7 @@ const AppSidebar = () => {
                           </div>
                         </SidebarMenuButton>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg bg-white">
+                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 max-h-60 [scrollbar-width:none] overflow-y-scroll rounded-lg bg-white">
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
                         {tagQuery.isLoading || !tagData?.tags?.length ? (
                           <div className="min-h-32 flex items-center justify-center w-full text-xl font-medium">

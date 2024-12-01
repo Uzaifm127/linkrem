@@ -52,6 +52,7 @@ import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
 import Cookies from "js-cookie";
 import { deletePopupCookieKey } from "@/constants/cookie-keys";
+import { linkQueryKey, tagQueryKey } from "@/constants/query-keys";
 
 const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
   // Extracting user preferences from cookies
@@ -92,19 +93,19 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
 
       // Cancel outgoing refetches
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: ["links"] }),
-        queryClient.cancelQueries({ queryKey: ["tags"] }),
+        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
+        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
       ]);
 
       // Getting the previous links
-      const previousLinks = queryClient.getQueryData(["links"]);
+      const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData(["tags"]);
+      const previousTags = queryClient.getQueryData([linkQueryKey]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
-        ["links"],
+        [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
             const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
@@ -157,17 +158,17 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
           variant: "destructive",
         });
 
-        queryClient.setQueryData(["links"], context.previousLinks);
-        queryClient.setQueryData(["tags"], context.previousTags);
+        queryClient.setQueryData([linkQueryKey], context.previousLinks);
+        queryClient.setQueryData([tagQueryKey], context.previousTags);
       }
     },
 
     async onSettled(_data, error) {
-      // queryClient.invalidateQueries({ queryKey: ["links"] });
+      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
       }
       setTagMutationLoading(false);
     },
@@ -185,19 +186,19 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
 
       // Cancel outgoing refetches
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: ["links"] }),
-        queryClient.cancelQueries({ queryKey: ["tags"] }),
+        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
+        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
       ]);
 
       // Getting the previous links
-      const previousLinks = queryClient.getQueryData(["links"]);
+      const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData(["tags"]);
+      const previousTags = queryClient.getQueryData([tagQueryKey]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
-        ["links"],
+        [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
             const updatedLinks = oldLinks.links.filter(
@@ -213,9 +214,8 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
 
       // Setting up the user preference, If any
       if (deletePopupCheck) {
-        Cookies.set(deletePopupCookieKey, "yes", {
-          expires: 30,
-        });
+        // Expires after session over
+        Cookies.set(deletePopupCookieKey, "yes");
       }
 
       // Return the context with previous value
@@ -229,17 +229,17 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
           variant: "destructive",
         });
 
-        queryClient.setQueryData(["links"], context.previousLinks);
-        queryClient.setQueryData(["tags"], context.previousTags);
+        queryClient.setQueryData([linkQueryKey], context.previousLinks);
+        queryClient.setQueryData([tagQueryKey], context.previousTags);
       }
     },
 
     async onSettled(_data, error) {
-      // queryClient.invalidateQueries({ queryKey: ["links"] });
+      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: ["tags"] });
+        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
       }
       setTagMutationLoading(false);
     },
