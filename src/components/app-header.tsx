@@ -37,6 +37,7 @@ const AppHeader = () => {
               variant={"ghost"}
               type="button"
               className="h-7 w-7 rounded-md"
+              disabled
             >
               <Search className="h-5 w-5 text-text-foreground" />
             </Button>
@@ -55,13 +56,14 @@ const AppHeader = () => {
         type="search"
         placeholder="Search Link Name"
         className="w-[40vw] md:w-[35vw] lg:w-[30rem] max-sm:hidden bg-muted"
+        disabled
       />
 
       <div className="flex items-center gap-3">
-        <Button variant="outline" type="button">
+        {/* <Button variant="outline" type="button">
           Get extension
         </Button>
-        <Button type="button">Donate</Button>
+        <Button type="button">Donate</Button> */}
       </div>
     </header>
   );

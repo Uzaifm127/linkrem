@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   BadgeCheck,
   // Bell,
@@ -11,7 +11,14 @@ import {
   Sparkles,
   Tag,
 } from "lucide-react";
-
+import {
+  Toast,
+  ToastClose,
+  ToastDescription,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+} from "@/components/ui/toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -44,9 +51,13 @@ import AppIcon from "@/components/ui/app-icon";
 import { openLinks } from "@/lib/server-actions/open-links";
 import { useAppStore } from "@/store";
 import { tagQueryKey } from "@/constants/query-keys";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 
 const AppSidebar = () => {
   const { data } = useSession();
+
+  const [clickedTag, setClickedTag] = useState("");
+  const [tagOpeningLoading, setTagOpeningLoading] = useState(false);
 
   const { tagMutationLoading } = useAppStore();
 
@@ -86,7 +97,7 @@ const AppSidebar = () => {
               return (
                 <SidebarMenuItem key={item.id}>
                   {item.items ? (
-                    <DropdownMenu >
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                           asChild
@@ -103,10 +114,19 @@ const AppSidebar = () => {
                       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 max-h-60 [scrollbar-width:none] overflow-y-scroll rounded-lg bg-white">
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
                         {tagQuery.isLoading || !tagData?.tags?.length ? (
-                          <div className="min-h-32 flex items-center justify-center w-full text-xl font-medium">
-                            {tagQuery.isLoading
-                              ? "Loading..."
-                              : "No Tags found"}
+                          <div className="min-h-40 flex items-center justify-center w-full text-xl font-medium">
+                            {tagQuery.isLoading ? (
+                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                                <DotLottieReact
+                                  className="h-40 w-40"
+                                  src="/animations/tag-loader.lottie"
+                                  loop
+                                  autoplay
+                                />
+                              </div>
+                            ) : (
+                              "No Tags found"
+                            )}
                           </div>
                         ) : (
                           tagData?.tags.map((tag) => (
@@ -114,13 +134,22 @@ const AppSidebar = () => {
                               key={tag.id}
                               className="cursor-pointer"
                               onClick={async () => {
-                                const linksStringArray = tag.links.map(
-                                  (link) => link.url
-                                );
+                                try {
+                                  const linksStringArray = tag.links.map(
+                                    (link) => link.url
+                                  );
 
-                                await openLinks(linksStringArray);
+                                  setTagOpeningLoading(true);
+
+                                  await openLinks(linksStringArray);
+                                } catch (error) {
+                                  console.error(error);
+                                } finally {
+                                  setClickedTag(tag.tagName);
+                                  setTagOpeningLoading(false);
+                                }
                               }}
-                              disabled={tagMutationLoading}
+                              disabled={tagMutationLoading || tagOpeningLoading}
                             >
                               <Tag className="h-6 w-6" />
                               {tag.tagName}
@@ -146,6 +175,31 @@ const AppSidebar = () => {
             })}
           </SidebarMenu>
         </SidebarGroup>
+
+        {/* Toast for loading of opening tag links */}
+        <ToastProvider>
+          <Toast
+            className="justify-start pl-2 pr-4 pt-4 pb-4"
+            open={tagOpeningLoading}
+            onOpenChange={setTagOpeningLoading}
+          >
+            <DotLottieReact
+              className="h-10 w-10"
+              src="/animations/toast-loader.lottie"
+              loop
+              autoplay
+              speed={3}
+            />
+            <div className="grid">
+              <ToastTitle>Running</ToastTitle>
+              <ToastDescription>
+                Opening the links for {clickedTag} tag
+              </ToastDescription>
+            </div>
+            <ToastClose />
+          </Toast>
+          <ToastViewport />
+        </ToastProvider>
       </SidebarContent>
 
       <SidebarFooter>
@@ -210,25 +264,17 @@ const AppSidebar = () => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem className="cursor-pointer" disabled>
                     <Sparkles />
                     Upgrade to Pro
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem className="cursor-pointer" disabled>
                     <BadgeCheck />
                     Account
                   </DropdownMenuItem>
-                  {/* <DropdownMenuItem className="cursor-pointer">
-                    <CreditCard />
-                    Billing
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Bell />
-                    Notifications
-                  </DropdownMenuItem> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={onLogout}>
