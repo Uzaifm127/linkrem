@@ -10,7 +10,7 @@ const Providers: React.FC<{ children: ReactNode }> = ({ children }) => {
     defaultOptions: {
       queries: {
         // This is to prevent the immediate refetch in SSR.
-        staleTime: 60 * 1000,
+        staleTime: 1000 * 60 * 60 * 24,
         refetchOnWindowFocus: false,
       },
     },

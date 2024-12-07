@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { LinkForm } from "@/types";
@@ -40,18 +40,20 @@ import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
+import { motion } from "motion/react";
 import {
   linkQueryKey,
-  sessionQueryKey,
+  // sessionQueryKey,
   tagQueryKey,
 } from "@/constants/query-keys";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 
-type TabValueType = "links" | "sessions";
+// type TabValueType = "links" | "sessions";
 
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
-  const [tabValue, setTabValue] = useState<TabValueType>("links");
+  // const [tabValue, setTabValue] = useState<TabValueType>("links");
 
   const { linkData, setLinkData, setTagMutationLoading, headerHeight } =
     useAppStore();
@@ -64,15 +66,15 @@ const LinksClient = () => {
   const linkQuery = useQuery({
     queryKey: [linkQueryKey],
     queryFn: async () => await fetcher("/api/link/all"),
-    enabled: tabValue === "links",
+    // enabled: tabValue === "links",
   });
 
   // Querying for sessions
-  const sessionQuery = useQuery({
-    queryKey: [sessionQueryKey],
-    queryFn: async () => await fetcher("/api/sessions"),
-    enabled: tabValue === "sessions",
-  });
+  // const sessionQuery = useQuery({
+  //   queryKey: [sessionQueryKey],
+  //   queryFn: async () => await fetcher("/api/sessions"),
+  //   enabled: tabValue === "sessions",
+  // });
 
   const linkForm = useForm<LinkForm>({
     resolver: zodResolver(linkSchema),
@@ -234,7 +236,7 @@ const LinksClient = () => {
         </Button>
 
         <div className="flex gap-4">
-          <Tabs
+          {/* <Tabs
             value={tabValue}
             onValueChange={(value) => setTabValue(value as TabValueType)}
           >
@@ -246,7 +248,7 @@ const LinksClient = () => {
                 Link
               </TabsTrigger>
             </TabsList>
-          </Tabs>
+          </Tabs> */}
 
           <DropdownMenu
             open={addDropdownOpen}
@@ -340,21 +342,37 @@ const LinksClient = () => {
               </Dialog>
 
               {/* For Saving sessions */}
-              <DropdownMenuItem>Add session</DropdownMenuItem>
+              <DropdownMenuItem disabled>Add session</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
-        {linkData?.links.map((link) => (
-          <Link
-            key={link.id}
-            name={link.name}
-            tags={link.tags}
-            url={link.url}
-          />
-        ))}
+        {linkQuery.isLoading ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          >
+            <DotLottieReact
+              className="h-[30rem] w-[30rem]"
+              src="/animations/hand-loader.lottie"
+              loop
+              autoplay
+            />
+          </motion.div>
+        ) : (
+          linkData?.links.map((link) => (
+            <Link
+              key={link.id}
+              name={link.name}
+              tags={link.tags}
+              url={link.url}
+            />
+          ))
+        )}
       </div>
     </div>
   );

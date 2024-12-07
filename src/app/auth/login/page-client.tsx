@@ -31,7 +31,9 @@ const LoginClient = () => {
 
   const { control, handleSubmit } = loginForm;
 
-  const onSubmit = useCallback((data: LoginForm) => {}, []);
+  const onSubmit = useCallback((data: LoginForm) => {
+    console.log(data);
+  }, []);
 
   return (
     <div className="border rounded-lg p-5 sm:p-10 space-y-8 w-[20rem] sm:w-[24rem] md:w-[26rem] bg-white">
