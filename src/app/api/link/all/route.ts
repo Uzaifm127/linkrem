@@ -23,6 +23,6 @@ export const GET = async () => {
 };
 
 // Handle OPTIONS method for preflight requests
-export const OPTIONS = () => {
-  return NextResponse.json(null, { status: 200, headers });
-};
+// export const OPTIONS = () => {
+//   return NextResponse.json(null, { status: 200, headers });
+// };
