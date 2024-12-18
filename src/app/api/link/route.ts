@@ -36,11 +36,17 @@ export const POST = async (req: NextRequest) => {
       },
     });
 
-    return NextResponse.json({ message: "Link create successfully" });
+    return NextResponse.json(
+      { message: "Link create successfully" },
+      { headers }
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 400 });
+    return NextResponse.json(
+      { message: error.message },
+      { status: 400, headers }
+    );
   }
 };
 
@@ -164,10 +170,16 @@ export const DELETE = async (req: NextRequest) => {
       },
     });
 
-    return NextResponse.json({ message: "Link deleted successfully" });
+    return NextResponse.json(
+      { message: "Link deleted successfully" },
+      { headers }
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 400 });
+    return NextResponse.json(
+      { message: error.message },
+      { status: 400, headers }
+    );
   }
 };
