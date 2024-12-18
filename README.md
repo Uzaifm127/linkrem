@@ -7,3 +7,4 @@
     a. session and link tab
     b. session fetching API
     c. creating a session on clicking a button except for the current URL.
+    d. change the dynamic extension id to permanent id in route.ts files in cors in the URL after publishing the extension, till then keep the cors domain * in the route.ts files for extension

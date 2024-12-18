@@ -3,6 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
 import { NextRequest, NextResponse } from "next/server";
 
+const headers = {
+  // change it later to specific
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, DELETE",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export const POST = async (req: NextRequest) => {
   try {
     const { name, url, tags }: CreateLinkRequest = await req.json();

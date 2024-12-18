@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 const headers = {
+  // change it later to specific
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "GET",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
