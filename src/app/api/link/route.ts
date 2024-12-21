@@ -10,6 +10,14 @@ const headers = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// Added the OPTIONS method to allow CORS
+export const OPTIONS = async () => {
+  return NextResponse.json(null, {
+    status: 200,
+    headers,
+  });
+};
+
 export const POST = async (req: NextRequest) => {
   try {
     const { name, url, tags }: CreateLinkRequest = await req.json();
