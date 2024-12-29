@@ -21,7 +21,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const { name, links }: CreateSessionLinkRequest = await req.json();
 
-    prisma.sessionLinks.create({
+    await prisma.sessionLinks.create({
       data: {
         name,
         links: {
