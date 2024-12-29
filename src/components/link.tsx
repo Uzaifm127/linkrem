@@ -271,7 +271,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
     <Card className="bg-white flex flex-col justify-between">
       <div>
         <CardHeader>
-          <CardTitle className="flex justify-between items-start">
+          <CardTitle className="flex justify-between items-start text-ellipsis overflow-hidden">
             {name}{" "}
             <div className="flex gap-1 items-center">
               <Edit
@@ -393,7 +393,9 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
               </AlertDialogContent>
             </AlertDialog>
           </CardTitle>
-          <CardDescription>{url}</CardDescription>
+          <CardDescription className="whitespace-nowrap text-ellipsis overflow-hidden">
+            {url}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">

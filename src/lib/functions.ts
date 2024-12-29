@@ -27,3 +27,7 @@ export const tagsParser = <Type extends boolean>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return wordsArray.length > 0 ? (wordsArray as any) : undefined;
 };
+
+export const normalizeUrl = (url: string): string => {
+  return url.endsWith("/") && url.length > 1 ? url.slice(0, -1) : url;
+};

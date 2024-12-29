@@ -3,6 +3,21 @@ import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
 import { NextRequest, NextResponse } from "next/server";
 
+const headers = {
+  // change it later to specific
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+// Added the OPTIONS method to allow CORS
+export const OPTIONS = async () => {
+  return NextResponse.json(null, {
+    status: 200,
+    headers,
+  });
+};
+
 export const POST = async (req: NextRequest) => {
   try {
     const { name, url, tags }: CreateLinkRequest = await req.json();
@@ -29,11 +44,17 @@ export const POST = async (req: NextRequest) => {
       },
     });
 
-    return NextResponse.json({ message: "Link create successfully" });
+    return NextResponse.json(
+      { message: "Link create successfully" },
+      { headers }
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 400 });
+    return NextResponse.json(
+      { message: error.message },
+      { status: 400, headers }
+    );
   }
 };
 
@@ -157,10 +178,16 @@ export const DELETE = async (req: NextRequest) => {
       },
     });
 
-    return NextResponse.json({ message: "Link deleted successfully" });
+    return NextResponse.json(
+      { message: "Link deleted successfully" },
+      { headers }
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json({ message: error.message }, { status: 400 });
+    return NextResponse.json(
+      { message: error.message },
+      { status: 400, headers }
+    );
   }
 };
