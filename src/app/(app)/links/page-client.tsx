@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Filter, Plus } from "lucide-react";
+import { Filter, Plus, Sparkles } from "lucide-react";
 import Link from "@/components/link";
 import {
   Dialog,
@@ -26,17 +26,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Cookies from "js-cookie";
 // import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { LinkForm } from "@/types";
+import { LinkData, LinkForm } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { linkSchema } from "@/lib/zod-schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import { AllLinksAPIResponse } from "@/types/server/response";
 import { useToast } from "@/hooks/use-toast";
-import { tagsParser } from "@/lib/functions";
 import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
@@ -47,6 +47,12 @@ import {
   tagQueryKey,
 } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { TagInput } from "@/components/ui/tag-input";
+import { Tag } from "emblor";
+import { tagParser } from "@/lib/functions";
+import { Label } from "@/components/ui/label";
+import { useSession } from "next-auth/react";
+import { deletePopupCookieKey } from "@/constants/cookie-keys";
 
 // type TabValueType = "links" | "sessions";
 
@@ -54,6 +60,11 @@ const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   // const [tabValue, setTabValue] = useState<TabValueType>("links");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePopupCheck, setDeletePopupCheck] = useState(false);
+  const [inputTags, setInputTags] = useState<Tag[]>([]);
+
+  const { data: session } = useSession();
 
   const { linkData, setLinkData, setTagMutationLoading, headerHeight } =
     useAppStore();
@@ -65,8 +76,9 @@ const LinksClient = () => {
   // Querying for links
   const linkQuery = useQuery({
     queryKey: [linkQueryKey],
-    queryFn: async () => await fetcher("/api/link/all"),
+    queryFn: async () => await fetcher("/api/link/my-links"),
     // enabled: tabValue === "links",
+    retry: false,
   });
 
   // Querying for sessions
@@ -82,15 +94,14 @@ const LinksClient = () => {
     defaultValues: {
       name: "",
       url: "",
-      tags: "",
     },
   });
 
   const { control, handleSubmit } = linkForm;
 
   const mutation = useMutation({
-    mutationFn: async (linkData: LinkForm) =>
-      await fetcher("/api/link", "POST", linkData),
+    mutationFn: async (linkDataObject: LinkData) =>
+      await fetcher("/api/link", "POST", linkDataObject),
 
     async onMutate(newLink) {
       // Doing mutation for links but also disabling the tags
@@ -113,9 +124,10 @@ const LinksClient = () => {
         [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
-              ...tag,
+            const tags = newLink.tags.map((tag) => ({
               id: uuid(),
+              tagName: tag,
+              locked: false,
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));
@@ -128,6 +140,7 @@ const LinksClient = () => {
                   name: newLink.name,
                   url: newLink.url,
                   tags: tags || [],
+                  userId: session?.user.id || uuid(),
                   sessionLinksId: null,
                   createdAt: new Date(new Date().toISOString()),
                   updatedAt: new Date(new Date().toISOString()),
@@ -160,6 +173,77 @@ const LinksClient = () => {
               Try again
             </ToastAction>
           ),
+          variant: "destructive",
+        });
+
+        queryClient.setQueryData([linkQueryKey], context.previousLinks);
+        queryClient.setQueryData([tagQueryKey], context.previousTags);
+      }
+    },
+
+    async onSettled(_data, error) {
+      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
+
+      // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+      }
+      setTagMutationLoading(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (currentLinkName: string) =>
+      await fetcher("/api/link", "DELETE", { currentLinkName } as {
+        currentLinkName: string;
+      }),
+
+    async onMutate(currentLinkName) {
+      // Doing mutation for links but also disabling the tags
+      setTagMutationLoading(true);
+
+      // Cancel outgoing refetches
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
+        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
+      ]);
+
+      // Getting the previous links
+      const previousLinks = queryClient.getQueryData([linkQueryKey]);
+
+      // Getting the previous tags associated with that link
+      const previousTags = queryClient.getQueryData([tagQueryKey]);
+
+      // Optimistically updating the query data
+      queryClient.setQueryData(
+        [linkQueryKey],
+        (oldLinks: AllLinksAPIResponse | undefined) => {
+          if (oldLinks) {
+            const updatedLinks = oldLinks.links.filter(
+              (link) => link.name !== currentLinkName
+            );
+
+            return { links: updatedLinks };
+          }
+        }
+      );
+
+      setDeleteDialogOpen(false);
+
+      // Setting up the user preference, If any
+      if (deletePopupCheck) {
+        // Expires after session over
+        Cookies.set(deletePopupCookieKey, "yes");
+      }
+
+      // Return the context with previous value
+      return { previousLinks, previousTags };
+    },
+
+    onError(_error, _newLink, context) {
+      if (context) {
+        toast({
+          title: "Something went wrong",
           variant: "destructive",
         });
 
@@ -216,10 +300,14 @@ const LinksClient = () => {
         });
       }
 
+      const tags = tagParser(inputTags);
+
+      const link = { ...linkFormData, tags };
+
       // Checking duplication link name and url is remaining on server but client side validation done.
-      mutation.mutate(linkFormData);
+      mutation.mutate(link);
     },
-    [mutation, linkData, linkForm, toast]
+    [mutation, linkData, linkForm, toast, inputTags]
   );
 
   return (
@@ -294,7 +382,7 @@ const LinksClient = () => {
                         control={control}
                         name="name"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="space-y-1">
                             <FormLabel>Name</FormLabel>
                             <FormControl>
                               <Input {...field} placeholder="Link name" />
@@ -303,12 +391,11 @@ const LinksClient = () => {
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={control}
                         name="url"
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="space-y-1">
                             <FormLabel>URL</FormLabel>
                             <FormControl>
                               <Input {...field} placeholder="URL" />
@@ -318,22 +405,13 @@ const LinksClient = () => {
                         )}
                       />
 
-                      <FormField
-                        control={control}
-                        name="tags"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tags {"(optional)"}</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="Comma-separated tags, e.g. workspace, products, new"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="space-y-1">
+                        <Label>Tags {"(optional)"}</Label>
+                        <TagInput
+                          tags={inputTags}
+                          setInputTags={setInputTags}
+                        />
+                      </div>
 
                       <Button type="submit">Save Link</Button>
                     </form>
@@ -363,15 +441,30 @@ const LinksClient = () => {
               autoplay
             />
           </motion.div>
-        ) : (
+        ) : linkData?.links?.length ? (
           linkData?.links.map((link) => (
             <Link
               key={link.id}
               name={link.name}
               tags={link.tags}
               url={link.url}
+              deletePopupCheck={deletePopupCheck}
+              setDeletePopupCheck={setDeletePopupCheck}
+              deleteDialogOpen={deleteDialogOpen}
+              setDeleteDialogOpen={setDeleteDialogOpen}
+              onLinkDelete={() => deleteMutation.mutate(link.name)}
             />
           ))
+        ) : (
+          <div className="flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center min-h-[200px] p-6">
+            <div>
+              <Sparkles className="w-10 h-10 text-muted-foreground mb-4" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">No Links Found</h3>
+            <p className="text-sm text-muted-foreground">
+              Create a link to get started.
+            </p>
+          </div>
         )}
       </div>
     </div>

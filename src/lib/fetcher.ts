@@ -1,4 +1,6 @@
 import { HttpMethods } from "@/types/server/request";
+import { AuthenticationError } from "./errors";
+import { authenticationErrorMessage } from "@/constants";
 
 export const fetcher = async <BodyType>(
   url: string,
@@ -21,7 +23,11 @@ export const fetcher = async <BodyType>(
   if (!response.ok) {
     const responseData = await response.json();
 
-    throw new Error(responseData.message || "Some error occured");
+    if (responseData.message === authenticationErrorMessage) {
+      throw new AuthenticationError(responseData.message);
+    } else {
+      throw new Error(responseData.message || "Some error occured");
+    }
   }
 
   return response.json();

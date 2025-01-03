@@ -9,15 +9,17 @@ datasource db {
 
 // Using uuid instead of autoincrement for security
 model User {
-  id            String        @id @default(uuid())
+  id            String         @id @default(uuid())
   name          String?
-  email         String?       @unique
+  email         String?        @unique
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   HashPassword  HashPassword?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  links         Link[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessionLinks  SessionLinks[]
 }
 
 model Account {
@@ -60,11 +62,14 @@ model Link {
   updatedAt      DateTime      @updatedAt
   sessionLinksId String?
   sessionLinks   SessionLinks? @relation(fields: [sessionLinksId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Tag {
   id        String   @id @default(uuid())
   tagName   String   @unique
+  locked    Boolean  @default(false)
   links     Link[]   @relation("LinkTag")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,8 +77,10 @@ model Tag {
 
 model SessionLinks {
   id        String   @id @default(uuid())
-  name      String
+  name      String   @unique
   links     Link[]
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -25,9 +25,9 @@ import { Edit, ExternalLink, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ToastAction } from "./ui/toast";
 import { fetcher } from "@/lib/fetcher";
-import { LinkForm } from "@/types";
+import { LinkDataForUpdate, LinkForm } from "@/types";
 import { AllLinksAPIResponse } from "@/types/server/response";
-import { tagsParser } from "@/lib/functions";
+import { tagParser } from "@/lib/functions";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,14 +53,32 @@ import { useAppStore } from "@/store";
 import Cookies from "js-cookie";
 import { deletePopupCookieKey } from "@/constants/cookie-keys";
 import { linkQueryKey, tagQueryKey } from "@/constants/query-keys";
+import { Tag } from "emblor";
+import { TagInput } from "@/components/ui/tag-input";
+import { Label } from "@/components/ui/label";
+import { useSession } from "next-auth/react";
 
-const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
+const Link: React.FC<LinkProps> = ({
+  name,
+  url,
+  tags,
+  deletePopupCheck,
+  setDeletePopupCheck,
+  deleteDialogOpen,
+  setDeleteDialogOpen,
+  onLinkDelete,
+}) => {
   // Extracting user preferences from cookies
   const dontShowDeletePopup = Cookies.get(deletePopupCookieKey);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deletePopupCheck, setDeletePopupCheck] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [inputTags, setInputTags] = useState<Tag[]>(() => {
+    const tagsState = tags.map((tag) => ({ id: uuid(), text: tag.tagName }));
+
+    return tagsState;
+  });
+
+  const { data: session } = useSession();
 
   const { setTagMutationLoading } = useAppStore();
 
@@ -74,14 +92,13 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
     defaultValues: {
       name,
       url,
-      tags: tags.map((tag) => tag.tagName).join(", "),
     },
   });
 
   const { control, handleSubmit } = updateLinkForm;
 
   const updateMutation = useMutation({
-    mutationFn: async (linkUpdatedData: LinkForm) =>
+    mutationFn: async (linkUpdatedData: LinkDataForUpdate) =>
       await fetcher("/api/link", "PUT", {
         currentLinkName: name,
         ...linkUpdatedData,
@@ -108,9 +125,10 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
         [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
-            const tags = tagsParser(newLink.tags, false)?.map((tag) => ({
-              ...tag,
+            const tags = newLink.tags.map((tag) => ({
               id: uuid(),
+              tagName: tag,
+              locked: false,
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));
@@ -122,6 +140,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
                   name: newLink.name,
                   url: newLink.url,
                   tags: tags || [],
+                  userId: session?.user.id || uuid(),
                   sessionLinksId: null,
                   createdAt: new Date(new Date().toISOString()),
                   updatedAt: new Date(new Date().toISOString()),
@@ -174,97 +193,38 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (currentLinkName: string) =>
-      await fetcher("/api/link", "DELETE", { currentLinkName } as {
-        currentLinkName: string;
-      }),
-
-    async onMutate(currentLinkName) {
-      // Doing mutation for links but also disabling the tags
-      setTagMutationLoading(true);
-
-      // Cancel outgoing refetches
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
-      ]);
-
-      // Getting the previous links
-      const previousLinks = queryClient.getQueryData([linkQueryKey]);
-
-      // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([tagQueryKey]);
-
-      // Optimistically updating the query data
-      queryClient.setQueryData(
-        [linkQueryKey],
-        (oldLinks: AllLinksAPIResponse | undefined) => {
-          if (oldLinks) {
-            const updatedLinks = oldLinks.links.filter(
-              (link) => link.name !== currentLinkName
-            );
-
-            return { links: updatedLinks };
-          }
-        }
-      );
-
-      setDeleteDialogOpen(false);
-
-      // Setting up the user preference, If any
-      if (deletePopupCheck) {
-        // Expires after session over
-        Cookies.set(deletePopupCookieKey, "yes");
-      }
-
-      // Return the context with previous value
-      return { previousLinks, previousTags };
-    },
-
-    onError(_error, _newLink, context) {
-      if (context) {
-        toast({
-          title: "Something went wrong",
-          variant: "destructive",
-        });
-
-        queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
-      }
-    },
-
-    async onSettled(_data, error) {
-      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
-
-      // Only invalidating when there is no error.
-      if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
-      }
-      setTagMutationLoading(false);
-    },
-  });
-
   // Link data must be there when we submit for update query
   const onSubmit = useCallback(
     (updatedLinkData: LinkForm) => {
       // Mutation happens when there is a change
-      const parsedTags = tagsParser(updatedLinkData.tags, false);
+      const nameChange = name !== updatedLinkData.name;
+      const URLChange = url !== updatedLinkData.url;
 
-      const currentTags = tags.map((tag) => ({ tagName: tag.tagName }));
+      const currentTags = inputTags.map((tag) => tag.text.trim());
 
-      if (
-        name !== updatedLinkData.name ||
-        url !== updatedLinkData.url ||
-        JSON.stringify(parsedTags) !== JSON.stringify(currentTags)
-      ) {
-        // Checking duplication link name and url is remaining on server but client side validation done.
-        updateMutation.mutate(updatedLinkData);
+      const oldTags = tags.map((tag) => tag.tagName.trim());
+
+      const tagChange = JSON.stringify(oldTags) !== JSON.stringify(currentTags);
+
+      if (nameChange || URLChange || tagChange) {
+        // Checking duplication link name and url is remaining on server and on the client side we have to check whether the data filled is already existed or not among all links.
+
+        const tags = tagParser(inputTags);
+
+        const updatedLink = {
+          ...updatedLinkData,
+          tags,
+          nameChange,
+          URLChange,
+          tagChange,
+        };
+
+        updateMutation.mutate(updatedLink);
       } else {
         setEditDialogOpen(false);
       }
     },
-    [updateMutation, name, tags, url]
+    [updateMutation, name, tags, url, inputTags]
   );
 
   return (
@@ -282,7 +242,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
                 className="h-7 w-7 rounded-sm transition text-red-600 cursor-pointer hover:bg-red-200 p-1"
                 onClick={() => {
                   if (!!dontShowDeletePopup) {
-                    deleteMutation.mutate(name);
+                    onLinkDelete();
                   } else {
                     setDeleteDialogOpen(true);
                   }
@@ -328,22 +288,10 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
                       )}
                     />
 
-                    <FormField
-                      control={control}
-                      name="tags"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tags {"(optional)"}</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Comma-separated tags, e.g. workspace, products, new"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-1">
+                      <Label>Tags {"(optional)"}</Label>
+                      <TagInput tags={inputTags} setInputTags={setInputTags} />
+                    </div>
 
                     <Button type="submit">Save Link</Button>
                   </form>
@@ -385,7 +333,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
                   </AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-destructive/20 text-destructive border border-destructive hover:bg-destructive/40"
-                    onClick={() => deleteMutation.mutate(name)}
+                    onClick={() => onLinkDelete()}
                   >
                     Delete
                   </AlertDialogAction>

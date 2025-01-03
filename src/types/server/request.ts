@@ -1,10 +1,12 @@
+import { LinkDataForUpdate } from "@/types/index";
+
 export interface CreateLinkRequest {
   name: string;
   url: string;
-  tags: string;
+  tags: Array<string>;
 }
 
-export interface UpdateLinkRequest extends CreateLinkRequest {
+export interface UpdateLinkRequest extends LinkDataForUpdate {
   currentLinkName: string;
 }
 

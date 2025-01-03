@@ -1,6 +1,7 @@
-import { tagsParser } from "@/lib/functions";
+import { sessionLinkTagName } from "@/constants";
 import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
+import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
 const headers = {
@@ -20,27 +21,45 @@ export const OPTIONS = async () => {
 
 export const POST = async (req: NextRequest) => {
   try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const { name, url, tags }: CreateLinkRequest = await req.json();
 
     if (!name || !url) {
       throw new Error("Invalid Name or URL");
     }
 
-    const tagsObjectArray = tagsParser(tags, true);
+    // Checking whether the user puts a locked tag
+    const isInvalidTag = tags.some((tag) => tag === sessionLinkTagName);
 
-    await prisma.link.create({
-      data: {
+    if (isInvalidTag) {
+      throw new Error("Restricted tag found");
+    }
+
+    const isTagsExist = tags.length > 0;
+
+    // Only creating a link if it doesn't exist
+    await prisma.link.upsert({
+      where: {
+        url,
+      },
+
+      update: { name },
+
+      create: {
         name,
         url,
         // Optionally creating tags
-        ...(tagsObjectArray && {
+        ...(isTagsExist && {
           tags: {
-            connectOrCreate: tagsObjectArray.map((tag) => ({
+            connectOrCreate: tags.map((tag) => ({
               where: { tagName: tag },
               create: { tagName: tag },
             })),
           },
         }),
+        user: {
+          connect: { id: token!.id },
+        },
       },
     });
 
@@ -60,66 +79,91 @@ export const POST = async (req: NextRequest) => {
 
 export const PUT = async (req: NextRequest) => {
   try {
-    const { name, url, tags, currentLinkName }: UpdateLinkRequest =
-      await req.json();
+    const {
+      name,
+      url,
+      tags,
+      currentLinkName,
+      URLChange,
+      nameChange,
+      tagChange,
+    }: UpdateLinkRequest = await req.json();
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
     if (!name || !url) {
       throw new Error("Invalid Name or URL");
     }
 
-    const tagsObjectArray = tagsParser(tags, true);
+    // Checking whether the user puts a locked tag
+    const isInvalidTag = tags.some((tag) => tag === sessionLinkTagName);
+
+    if (isInvalidTag) {
+      throw new Error("Restricted tag found");
+    }
+
+    const isTagsExist = tags.length > 0;
 
     let tagsToRemove: Array<never> | Array<string> = [];
 
-    if (!!tagsObjectArray) {
-      // Case:- where user adds some tags on a link
+    if (isTagsExist) {
+      let currentTags: Array<never> | Array<string>;
+      let currentTagsSet: Set<string>;
+      let tagsSet: Set<string>;
+      let tagsToAdd: Array<string> | Array<never> = [];
 
-      // Finding the current tags from a database associated with the given link
-      const currentTags = (
-        await prisma.link.findUnique({
-          where: {
-            name: currentLinkName,
-          },
-          include: { tags: true },
-        })
-      )?.tags.map((tag) => tag.tagName) as Array<string> | Array<never>;
+      // Only doing get tag operation if there is a change in tags
+      if (tagChange) {
+        // Case:- where user adds some tags on a link
 
-      // For adding new tags
-      const currentTagsSet = new Set(currentTags);
+        // Finding the current tags from a database associated with the given link
+        currentTags = (
+          await prisma.link.findUnique({
+            where: {
+              userId: token?.id,
+              name: currentLinkName,
+            },
+            include: { tags: true },
+          })
+        )?.tags.map((tag) => tag.tagName) as Array<string> | Array<never>;
 
-      // For removing the removed tags
-      const tagsObjectArraySet = new Set(tagsObjectArray);
+        // For adding new tags
+        currentTagsSet = new Set(currentTags);
 
-      // Case: 1 - user adds new tag in the previous one.
-      const tagsToAdd = tagsObjectArray.filter(
-        (tag) => !currentTagsSet.has(tag)
-      ); // Array of string
+        // For removing the removed tags
+        tagsSet = new Set(tags);
 
-      // Case: 2 - user remove some tags from the previous one.
-      tagsToRemove = currentTags.filter((tag) => !tagsObjectArraySet.has(tag));
+        // Case: 1 - user adds new tag in the previous one.
+        tagsToAdd = tags.filter((tag) => !currentTagsSet.has(tag)); // Array of string
+
+        // Case: 2 - user remove some tags from the previous one.
+        tagsToRemove = currentTags.filter((tag) => !tagsSet.has(tag));
+      }
 
       await prisma.link.update({
         where: {
           // Name because we aren't invalidating the query by react query so id might be different
+          userId: token?.id,
           name: currentLinkName,
         },
 
         data: {
-          name,
-          url,
-          tags: {
-            ...(tagsToAdd.length && {
-              connectOrCreate: tagsToAdd.map((tag) => {
-                const object = { tagName: tag };
+          ...(nameChange && { name }),
+          ...(URLChange && { url }),
+          ...(tagChange && {
+            tags: {
+              ...(tagsToAdd.length && {
+                connectOrCreate: tagsToAdd.map((tag) => {
+                  const object = { tagName: tag };
 
-                return { where: object, create: object };
+                  return { where: object, create: object };
+                }),
               }),
-            }),
 
-            ...(tagsToRemove.length && {
-              disconnect: tagsToRemove.map((tag) => ({ tagName: tag })),
-            }),
-          },
+              ...(tagsToRemove.length && {
+                disconnect: tagsToRemove.map((tag) => ({ tagName: tag })),
+              }),
+            },
+          }),
         },
       });
     } else {
@@ -127,21 +171,24 @@ export const PUT = async (req: NextRequest) => {
       await prisma.link.update({
         where: {
           // Name because we aren't invalidating the query by react query so id might be different
+          userId: token?.id,
           name: currentLinkName,
         },
 
         data: {
-          name,
-          url,
-          tags: {
-            set: [],
-          },
+          ...(nameChange && { name }),
+          ...(URLChange && { url }),
+          ...(tagChange && {
+            tags: {
+              set: [],
+            },
+          }),
         },
       });
     }
 
     // If user removed all tags or if user removed some of the tags
-    if (!tagsObjectArray || tagsToRemove.length) {
+    if (!isTagsExist || tagsToRemove.length) {
       // Removing those tags which aren't connected to any of the link
       await prisma.tag.deleteMany({
         where: {
@@ -162,10 +209,12 @@ export const PUT = async (req: NextRequest) => {
 
 export const DELETE = async (req: NextRequest) => {
   try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const { currentLinkName }: { currentLinkName: string } = await req.json();
 
     await prisma.link.delete({
       where: {
+        userId: token?.id,
         name: currentLinkName,
       },
     });

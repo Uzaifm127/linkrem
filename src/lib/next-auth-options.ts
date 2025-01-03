@@ -33,6 +33,24 @@ export const nextAuthOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  // JWT will come in jwt callback and then passed to session callback.
+  callbacks: {
+    // user parameter will only be available after the signin, later it will be undefined
+    jwt: ({ token, user, trigger }) => {
+      // Preventing re-assigning the properties of the token if user is undefined
+      if (trigger === "signIn" && user) {
+        token.id = user?.id;
+      }
+
+      return token;
+    },
+    session: ({ session, token }) => {
+      if (token) {
+        session.user.id = token.id;
+      }
+      return session;
+    },
+  },
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: { signIn: "/auth/login" },
 };

@@ -1,8 +1,6 @@
-import { nextAuthOptions } from "@/lib/next-auth-options";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
 const headers = {
   // change it later to specific
@@ -15,9 +13,18 @@ export const GET = async (req: NextRequest) => {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-    const links = await prisma.link.findMany({ include: { tags: true } });
+    const sessions = await prisma.sessionLinks.findMany({
+      where: {
+        // token must be here as it is protected route
+        userId: token!.id,
+      },
 
-    return NextResponse.json({ links }, { headers });
+      include: {
+        links: { include: { tags: true } },
+      },
+    });
+
+    return NextResponse.json({ sessions }, { headers });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
