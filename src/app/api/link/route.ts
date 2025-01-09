@@ -1,4 +1,3 @@
-import { sessionLinkTagName } from "@/constants";
 import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
 import { getToken } from "next-auth/jwt";
@@ -28,32 +27,21 @@ export const POST = async (req: NextRequest) => {
       throw new Error("Invalid Name or URL");
     }
 
-    // Checking whether the user puts a locked tag
-    const isInvalidTag = tags.some((tag) => tag === sessionLinkTagName);
-
-    if (isInvalidTag) {
-      throw new Error("Restricted tag found");
-    }
-
     const isTagsExist = tags.length > 0;
 
-    // Only creating a link if it doesn't exist
-    await prisma.link.upsert({
-      where: {
-        url,
-      },
-
-      update: { name },
-
-      create: {
+    // Only create link for the same user if it doesn't exist
+    await prisma.link.create({
+      data: {
         name,
         url,
         // Optionally creating tags
         ...(isTagsExist && {
           tags: {
             connectOrCreate: tags.map((tag) => ({
-              where: { tagName: tag },
-              create: { tagName: tag },
+              where: {
+                tagName_userId: { tagName: tag, userId: token!.id },
+              },
+              create: { tagName: tag, user: { connect: { id: token!.id } } },
             })),
           },
         }),
@@ -94,13 +82,6 @@ export const PUT = async (req: NextRequest) => {
       throw new Error("Invalid Name or URL");
     }
 
-    // Checking whether the user puts a locked tag
-    const isInvalidTag = tags.some((tag) => tag === sessionLinkTagName);
-
-    if (isInvalidTag) {
-      throw new Error("Restricted tag found");
-    }
-
     const isTagsExist = tags.length > 0;
 
     let tagsToRemove: Array<never> | Array<string> = [];
@@ -119,8 +100,10 @@ export const PUT = async (req: NextRequest) => {
         currentTags = (
           await prisma.link.findUnique({
             where: {
-              userId: token?.id,
-              name: currentLinkName,
+              name_userId: {
+                userId: token!.id,
+                name: currentLinkName,
+              },
             },
             include: { tags: true },
           })
@@ -141,9 +124,11 @@ export const PUT = async (req: NextRequest) => {
 
       await prisma.link.update({
         where: {
-          // Name because we aren't invalidating the query by react query so id might be different
-          userId: token?.id,
-          name: currentLinkName,
+          name_userId: {
+            // Name because we aren't invalidating the query by react query so id might be different
+            userId: token!.id,
+            name: currentLinkName,
+          },
         },
 
         data: {
@@ -151,16 +136,24 @@ export const PUT = async (req: NextRequest) => {
           ...(URLChange && { url }),
           ...(tagChange && {
             tags: {
-              ...(tagsToAdd.length && {
+              ...(tagsToAdd.length > 0 && {
                 connectOrCreate: tagsToAdd.map((tag) => {
-                  const object = { tagName: tag };
-
-                  return { where: object, create: object };
+                  return {
+                    where: {
+                      tagName_userId: { tagName: tag, userId: token!.id },
+                    },
+                    create: {
+                      tagName: tag,
+                      user: { connect: { id: token!.id } },
+                    },
+                  };
                 }),
               }),
 
-              ...(tagsToRemove.length && {
-                disconnect: tagsToRemove.map((tag) => ({ tagName: tag })),
+              ...(tagsToRemove.length > 0 && {
+                disconnect: tagsToRemove.map((tag) => ({
+                  tagName_userId: { tagName: tag, userId: token!.id },
+                })),
               }),
             },
           }),
@@ -170,9 +163,11 @@ export const PUT = async (req: NextRequest) => {
       // Case:- where user removed all the tags from a link
       await prisma.link.update({
         where: {
-          // Name because we aren't invalidating the query by react query so id might be different
-          userId: token?.id,
-          name: currentLinkName,
+          name_userId: {
+            // Name because we aren't invalidating the query by react query so id might be different
+            userId: token!.id,
+            name: currentLinkName,
+          },
         },
 
         data: {
@@ -214,8 +209,10 @@ export const DELETE = async (req: NextRequest) => {
 
     await prisma.link.delete({
       where: {
-        userId: token?.id,
-        name: currentLinkName,
+        name_userId: {
+          userId: token!.id,
+          name: currentLinkName,
+        },
       },
     });
 

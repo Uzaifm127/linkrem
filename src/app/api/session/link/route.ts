@@ -6,7 +6,7 @@
 //         prisma.link.update({
 //             where: {},
 //             data: {
-//                 sessionLinks:
+//                 linkSessions:
 //             }
 //         })
 //     } catch (error) {

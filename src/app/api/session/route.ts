@@ -1,4 +1,3 @@
-import { sessionLinkTagName } from "@/constants";
 import { prisma } from "@/lib/prisma";
 import { CreateSessionLinkRequest } from "@/types/server/request";
 import { getToken } from "next-auth/jwt";
@@ -23,29 +22,16 @@ export const POST = async (req: NextRequest) => {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
   try {
-    const { name, links }: CreateSessionLinkRequest = await req.json();
+    const { name, sessionLinks }: CreateSessionLinkRequest = await req.json();
 
-    await prisma.sessionLinks.create({
+    await prisma.linkSessions.create({
       data: {
         name,
         user: { connect: { id: token!.id } },
-        links: {
-          connectOrCreate: links.map((link) => ({
-            // choosen url because we need to connect with same urls for session not with name with different URLs
-            where: { url: link.url },
-            create: {
-              name: link.name,
-              url: link.url,
-              tags: {
-                connectOrCreate: [
-                  {
-                    where: { tagName: sessionLinkTagName },
-                    create: { tagName: sessionLinkTagName, locked: true },
-                  },
-                ],
-              },
-              user: { connect: { id: token!.id } },
-            },
+        sessionLinks: {
+          create: sessionLinks.map((sessionLink) => ({
+            name: sessionLink.name,
+            url: sessionLink.url,
           })),
         },
       },
@@ -68,10 +54,12 @@ export const DELETE = async (req: NextRequest) => {
     const { currentSessionName }: { currentSessionName: string } =
       await req.json();
 
-    await prisma.sessionLinks.delete({
+    await prisma.linkSessions.delete({
       where: {
-        name: currentSessionName,
-        userId: token?.id,
+        name_userId: {
+          name: currentSessionName,
+          userId: token!.id,
+        },
       },
     });
 

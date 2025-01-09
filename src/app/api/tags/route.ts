@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
 
-export const GET = async () => {
+export const GET = async (req: NextRequest) => {
   try {
-    const tags = await prisma.tag.findMany({ include: { links: true } });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+    const tags = await prisma.tag.findMany({
+      where: { userId: token!.id },
+      include: { links: true },
+    });
 
     return NextResponse.json({ tags });
 

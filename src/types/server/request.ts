@@ -12,7 +12,7 @@ export interface UpdateLinkRequest extends LinkDataForUpdate {
 
 export interface CreateSessionLinkRequest {
   name: string;
-  links: Array<{ name: string; url: string }>;
+  sessionLinks: Array<{ name: string; url: string }>;
 }
 
 export type HttpMethods = "GET" | "POST" | "PUT" | "DELETE";

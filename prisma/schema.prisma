@@ -9,17 +9,20 @@ datasource db {
 
 // Using uuid instead of autoincrement for security
 model User {
-  id            String         @id @default(uuid())
+  id            String        @id @default(uuid())
   name          String?
-  email         String?        @unique
+  email         String?       @unique
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   HashPassword  HashPassword?
   links         Link[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  sessionLinks  SessionLinks[]
+
+  // Making the relation of tags with user to prevent the duplication of tags for the same user
+  tags         Tag[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  linkSessions LinkSessions[]
 }
 
 model Account {
@@ -54,33 +57,49 @@ model HashPassword {
 }
 
 model Link {
-  id             String        @id @default(uuid())
-  name           String        @unique
-  url            String        @unique
-  tags           Tag[]         @relation("LinkTag")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  sessionLinksId String?
-  sessionLinks   SessionLinks? @relation(fields: [sessionLinksId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  tags      Tag[]    @relation("LinkTag")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
 }
 
 model Tag {
   id        String   @id @default(uuid())
-  tagName   String   @unique
+  tagName   String
   locked    Boolean  @default(false)
   links     Link[]   @relation("LinkTag")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tagName, userId])
+}
+
+model LinkSessions {
+  id           String         @id @default(uuid())
+  name         String
+  sessionLinks SessionLinks[]
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([name, userId])
 }
 
 model SessionLinks {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  links     Link[]
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String       @id @default(uuid())
+  name          String
+  url           String
+  linkSessionId String
+  linkSession   LinkSessions @relation(fields: [linkSessionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
