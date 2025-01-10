@@ -34,7 +34,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Cookies from "js-cookie";
-// import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { LinkData, LinkForm } from "@/types";
@@ -50,11 +49,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
-import { motion } from "motion/react";
 import {
   linkQueryKey,
   sessionQueryKey,
-  // sessionQueryKey,
   tagQueryKey,
 } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -63,7 +60,10 @@ import { Tag } from "emblor";
 import { tagParser } from "@/lib/functions";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
-import { deletePopupCookieKey } from "@/constants/cookie-keys";
+import {
+  linkDeletePopupCookieKey,
+  sessionDeletePopupCookieKey,
+} from "@/constants/cookie-keys";
 import { Session } from "@/components/session";
 
 type TabValueType = "links" | "sessions";
@@ -72,8 +72,10 @@ const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [tabValue, setTabValue] = useState<TabValueType>("links");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletePopupCheck, setDeletePopupCheck] = useState(false);
+  const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
+  const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
+  const [linkDeletePopupCheck, setLinkDeletePopupCheck] = useState(false);
+  const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
 
   const { data: session } = useSession();
@@ -148,6 +150,7 @@ const LinksClient = () => {
               id: uuid(),
               tagName: tag,
               locked: false,
+              userId: session?.user.id || uuid(),
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));
@@ -248,12 +251,12 @@ const LinksClient = () => {
         }
       );
 
-      setDeleteDialogOpen(false);
+      setLinkDeleteDialogOpen(false);
 
       // Setting up the user preference, If any
-      if (deletePopupCheck) {
+      if (linkDeletePopupCheck) {
         // Expires after session over
-        Cookies.set(deletePopupCookieKey, "yes");
+        Cookies.set(linkDeletePopupCookieKey, "yes");
       }
 
       // Return the context with previous value
@@ -290,45 +293,36 @@ const LinksClient = () => {
       }),
 
     async onMutate(currentSessionName) {
-      // Doing mutation for links but also disabling the tags
-      setTagMutationLoading(true);
-
       // Cancel outgoing refetches
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
-      ]);
+      await queryClient.cancelQueries({ queryKey: [sessionQueryKey] });
 
-      // Getting the previous links
-      const previousLinks = queryClient.getQueryData([linkQueryKey]);
-
-      // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([tagQueryKey]);
+      // Getting the previous sessions
+      const previousSessions = queryClient.getQueryData([sessionQueryKey]);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
-        [linkQueryKey],
-        (oldLinks: AllLinksAPIResponse | undefined) => {
-          if (oldLinks) {
-            const updatedLinks = oldLinks.links.filter(
-              (link) => link.name !== currentLinkName
+        [sessionQueryKey],
+        (oldSessions: AllSessionsAPIResponse | undefined) => {
+          if (oldSessions) {
+            const updatedSessions = oldSessions.sessions.filter(
+              (session) => session.name !== currentSessionName
             );
 
-            return { links: updatedLinks };
+            return { sessions: updatedSessions };
           }
         }
       );
 
-      setDeleteDialogOpen(false);
+      setSessionDeleteDialogOpen(false);
 
       // Setting up the user preference, If any
-      if (deletePopupCheck) {
+      if (sessionDeletePopupCheck) {
         // Expires after session over
-        Cookies.set(deletePopupCookieKey, "yes");
+        Cookies.set(sessionDeletePopupCookieKey, "yes");
       }
 
       // Return the context with previous value
-      return { previousLinks, previousTags };
+      return { previousSessions };
     },
 
     onError(_error, _newLink, context) {
@@ -338,17 +332,15 @@ const LinksClient = () => {
           variant: "destructive",
         });
 
-        queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
+        queryClient.setQueryData([sessionQueryKey], context.previousSessions);
       }
     },
 
     async onSettled(_data, error) {
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+        await queryClient.invalidateQueries({ queryKey: [sessionQueryKey] });
       }
-      setTagMutationLoading(false);
     },
   });
 
@@ -365,6 +357,58 @@ const LinksClient = () => {
     sessionQuery.data,
     setSessionData,
   ]);
+
+  useEffect(() => {
+    useAppStore.setState((state) => {
+      // For checking whether the search is for link or not
+      if (state.globalSearch.type === "link") {
+        // For ressting the link list when search is cleared
+        if (state.globalSearch.searchText === "") {
+          return {
+            linkData: linkQuery.data,
+          };
+        } else {
+          // If links exist then only apply search
+          if (state.linkData?.links.length) {
+            const filteredLinks = state.linkData.links.filter(
+              (link) =>
+                link.name
+                  .toLowerCase()
+                  .includes(state.globalSearch.searchText.toLowerCase()) ||
+                link.url
+                  .toLowerCase()
+                  .includes(state.globalSearch.searchText.toLowerCase())
+            );
+
+            return { linkData: { links: filteredLinks } };
+          } else {
+            return { ...state };
+          }
+        }
+      } else {
+        // For ressting the session list when search is cleared
+        if (state.globalSearch.searchText === "") {
+          return {
+            sessionData: sessionQuery.data,
+          };
+        } else {
+          // If sessions exist then only apply search
+          if (state.sessionData?.sessions.length) {
+            const filteredSessions = state.sessionData.sessions.filter(
+              (session) =>
+                session.name
+                  .toLowerCase()
+                  .includes(state.globalSearch.searchText.toLowerCase())
+            );
+
+            return { sessionData: { sessions: filteredSessions } };
+          } else {
+            return { ...state };
+          }
+        }
+      }
+    });
+  }, [linkQuery.data, sessionQuery.data]);
 
   // This submit func will call only after the data of links have been fetched
   const onSubmit = useCallback(
@@ -410,19 +454,14 @@ const LinksClient = () => {
   );
 
   const lottieLoader = (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-    >
+    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
       <DotLottieReact
         className="h-[30rem] w-[30rem]"
         src="/animations/hand-loader.lottie"
         loop
         autoplay
       />
-    </motion.div>
+    </div>
   );
 
   if (tabValue === "links") {
@@ -435,10 +474,10 @@ const LinksClient = () => {
           name={link.name}
           tags={link.tags}
           url={link.url}
-          deletePopupCheck={deletePopupCheck}
-          setDeletePopupCheck={setDeletePopupCheck}
-          deleteDialogOpen={deleteDialogOpen}
-          setDeleteDialogOpen={setDeleteDialogOpen}
+          deletePopupCheck={linkDeletePopupCheck}
+          setDeletePopupCheck={setLinkDeletePopupCheck}
+          deleteDialogOpen={linkDeleteDialogOpen}
+          setDeleteDialogOpen={setLinkDeleteDialogOpen}
           onLinkDelete={() => deleteMutation.mutate(link.name)}
         />
       ))
@@ -461,9 +500,16 @@ const LinksClient = () => {
         <Session
           key={session.id}
           name={session.name}
-          links={session.links}
+          sessionLinks={session.sessionLinks}
           createdAt={session.createdAt}
-          onSessionLinkDelete={(linkName) => deleteMutation.mutate(linkName)}
+          setSessionDeletePopupCheck={setSessionDeletePopupCheck}
+          sessionDeletePopupCheck={sessionDeletePopupCheck}
+          setSessionDeleteDialogOpen={setSessionDeleteDialogOpen}
+          sessionDeleteDialogOpen={sessionDeleteDialogOpen}
+          onDeleteSession={(sessionName) =>
+            sessionDeleteMutation.mutate(sessionName)
+          }
+          onSessionLinkDelete={() => {}}
         />
       ))
     ) : (
@@ -498,11 +544,11 @@ const LinksClient = () => {
             onValueChange={(value) => setTabValue(value as TabValueType)}
           >
             <TabsList className="bg-white rounded-md">
-              <TabsTrigger className="rounded-sm" value="sessions">
-                Session
-              </TabsTrigger>
               <TabsTrigger className="rounded-sm" value="links">
                 Link
+              </TabsTrigger>
+              <TabsTrigger className="rounded-sm" value="sessions">
+                Session
               </TabsTrigger>
             </TabsList>
           </Tabs>

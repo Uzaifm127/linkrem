@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { SessionLinks } from "@prisma/client";
 import { Tag } from "emblor";
 import { Dispatch, SetStateAction } from "react";
 
@@ -29,8 +29,12 @@ export interface TagProps {
 
 export interface SessionProps {
   name: string;
-  links: Array<Prisma.LinkGetPayload<{ include: { tags: true } }>>;
+  sessionLinks: Array<SessionLinks>;
   createdAt: Date;
-  onDeleteSession: (id: string) => void;
+  sessionDeletePopupCheck: boolean;
+  setSessionDeletePopupCheck: React.Dispatch<React.SetStateAction<boolean>>;
+  sessionDeleteDialogOpen: boolean;
+  setSessionDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onDeleteSession: (sessionName: string) => void;
   onSessionLinkDelete: (linkName: string) => void;
 }

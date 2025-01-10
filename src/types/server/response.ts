@@ -23,13 +23,9 @@ export interface AllTagsAPIResponse {
 
 export interface AllSessionsAPIResponse {
   sessions: Array<
-    Prisma.SessionLinksGetPayload<{
+    Prisma.LinkSessionsGetPayload<{
       include: {
-        links: {
-          include: {
-            tags: true;
-          };
-        };
+        sessionLinks: true;
       };
     }>
   >;

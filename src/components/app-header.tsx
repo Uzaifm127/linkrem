@@ -13,7 +13,7 @@ import {
 import { useAppStore } from "@/store";
 
 const AppHeader = () => {
-  const { setHeaderHeight } = useAppStore();
+  const { setHeaderHeight, setGlobalSearch, globalSearch } = useAppStore();
 
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -45,7 +45,7 @@ const AppHeader = () => {
           <PopoverContent align="start">
             <Input
               type="search"
-              placeholder="Search Link Name"
+              placeholder="Search by link name or URLs"
               className="w-full bg-muted"
             />{" "}
           </PopoverContent>
@@ -54,9 +54,21 @@ const AppHeader = () => {
 
       <Input
         type="search"
-        placeholder="Search Link Name"
+        placeholder={
+          globalSearch.type === "link"
+            ? "Search by link name or URLs"
+            : "Search by session name"
+        }
         className="w-[40vw] md:w-[35vw] lg:w-[30rem] max-sm:hidden bg-muted"
-        disabled
+        onChange={(e) => {
+          const searchText = e.target.value;
+
+          if (globalSearch.type === "link") {
+            setGlobalSearch({ searchText, type: "link" });
+          } else {
+            setGlobalSearch({ searchText, type: "session" });
+          }
+        }}
       />
 
       <div className="flex items-center gap-3">

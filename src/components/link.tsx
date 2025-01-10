@@ -51,7 +51,7 @@ import { Input } from "@/components/ui/input";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
 import Cookies from "js-cookie";
-import { deletePopupCookieKey } from "@/constants/cookie-keys";
+import { linkDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { linkQueryKey, tagQueryKey } from "@/constants/query-keys";
 import { Tag } from "emblor";
 import { TagInput } from "@/components/ui/tag-input";
@@ -69,7 +69,7 @@ const Link: React.FC<LinkProps> = ({
   onLinkDelete,
 }) => {
   // Extracting user preferences from cookies
-  const dontShowDeletePopup = Cookies.get(deletePopupCookieKey);
+  const dontShowDeletePopup = Cookies.get(linkDeletePopupCookieKey);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>(() => {
@@ -129,6 +129,7 @@ const Link: React.FC<LinkProps> = ({
               id: uuid(),
               tagName: tag,
               locked: false,
+              userId: session?.user.id || uuid(),
               createdAt: new Date(new Date().toISOString()),
               updatedAt: new Date(new Date().toISOString()),
             }));

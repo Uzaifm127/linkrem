@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Cookies from "js-cookie";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -20,16 +20,35 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SessionProps } from "@/types/props";
 import { v4 as uuid } from "uuid";
+import { sessionDeletePopupCookieKey } from "@/constants/cookie-keys";
 
 export function Session({
   name,
-  links,
+  sessionLinks,
   createdAt,
+  sessionDeletePopupCheck,
+  setSessionDeletePopupCheck,
+  sessionDeleteDialogOpen,
+  setSessionDeleteDialogOpen,
   onDeleteSession,
   onSessionLinkDelete,
 }: SessionProps) {
+  // Extracting user preferences from cookies
+  const dontShowSessionDeletePopup = Cookies.get(sessionDeletePopupCookieKey);
+
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -65,40 +84,80 @@ export function Session({
       {isExpanded && (
         <CardContent>
           <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-            {links.map((link) => (
+            {sessionLinks.map((sessionLink) => (
               <div
-                key={link.id}
+                key={sessionLink.id}
                 className="flex justify-between items-center mb-2 p-2 hover:bg-accent rounded-md"
               >
                 <div>
                   <a
-                    href={link.url}
+                    href={sessionLink.url}
                     target={`_linkrem-${uuid()}`}
                     rel="noopener noreferrer"
                     className="font-medium hover:underline"
                   >
-                    {link.name}
+                    {sessionLink.name}
                   </a>
-                  <div className="flex gap-1 mt-1">
-                    {link.tags.map((tag) => (
-                      <Badge
-                        key={tag.tagName}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {tag.tagName}
-                      </Badge>
-                    ))}
-                  </div>
                 </div>
                 <div className="flex gap-2">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
+                        <AlertDialog
+                          open={sessionDeleteDialogOpen}
+                          onOpenChange={setSessionDeleteDialogOpen}
+                        >
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Are you absolutely sure?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete your session and
+                                remove your session data from our servers.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="dont-show-again"
+                                checked={sessionDeletePopupCheck}
+                                onCheckedChange={(checked) => {
+                                  if (typeof checked === "boolean") {
+                                    setSessionDeletePopupCheck(checked);
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor="dont-show-again"
+                                className="text-sm font-medium cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                Don&apos;t show again
+                              </label>
+                            </div>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="hover:bg-accent-foreground/20 hover:text-text">
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive/20 text-destructive border border-destructive hover:bg-destructive/40"
+                                onClick={() => onSessionLinkDelete(name)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onSessionLinkDelete(link.name)}
+                          onClick={() => {
+                            if (!!dontShowSessionDeletePopup) {
+                              onSessionLinkDelete(name);
+                            } else {
+                              setSessionDeleteDialogOpen(true);
+                            }
+                          }}
                         >
                           <Trash className="h-4 w-4" />
                         </Button>
