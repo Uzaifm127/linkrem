@@ -1,15 +1,5 @@
-// import { prisma } from "@/lib/prisma"
-// import { NextRequest } from "next/server"
+import { NextResponse } from "next/server";
 
-// export const DELETE = async (req: NextRequest) => {
-//     try {
-//         prisma.link.update({
-//             where: {},
-//             data: {
-//                 linkSessions:
-//             }
-//         })
-//     } catch (error) {
-
-//     }
-// }
+export const DELETE = async () => {
+  return NextResponse.json({ message: "Hello world" });
+};
