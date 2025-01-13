@@ -60,10 +60,7 @@ import { Tag } from "emblor";
 import { tagParser } from "@/lib/functions";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
-import {
-  linkDeletePopupCookieKey,
-  sessionDeletePopupCookieKey,
-} from "@/constants/cookie-keys";
+import { sessionDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { Session } from "@/components/session";
 
 type TabValueType = "links" | "sessions";
@@ -72,9 +69,7 @@ const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [tabValue, setTabValue] = useState<TabValueType>("links");
-  const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
   const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
-  const [linkDeletePopupCheck, setLinkDeletePopupCheck] = useState(false);
   const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
 
@@ -87,6 +82,8 @@ const LinksClient = () => {
     sessionData,
     setTagMutationLoading,
     headerHeight,
+    globalSearch,
+    setGlobalSearch,
   } = useAppStore();
 
   const { toast } = useToast();
@@ -176,6 +173,7 @@ const LinksClient = () => {
 
       setDialogOpen(false);
       linkForm.reset();
+      setInputTags([]);
       // Closing dropdown after closing dialog
       setAddDropdownOpen(false);
 
@@ -196,77 +194,6 @@ const LinksClient = () => {
               Try again
             </ToastAction>
           ),
-          variant: "destructive",
-        });
-
-        queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
-      }
-    },
-
-    async onSettled(_data, error) {
-      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
-
-      // Only invalidating when there is no error.
-      if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
-      }
-      setTagMutationLoading(false);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (currentLinkName: string) =>
-      await fetcher("/api/link", "DELETE", { currentLinkName } as {
-        currentLinkName: string;
-      }),
-
-    async onMutate(currentLinkName) {
-      // Doing mutation for links but also disabling the tags
-      setTagMutationLoading(true);
-
-      // Cancel outgoing refetches
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
-      ]);
-
-      // Getting the previous links
-      const previousLinks = queryClient.getQueryData([linkQueryKey]);
-
-      // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([tagQueryKey]);
-
-      // Optimistically updating the query data
-      queryClient.setQueryData(
-        [linkQueryKey],
-        (oldLinks: AllLinksAPIResponse | undefined) => {
-          if (oldLinks) {
-            const updatedLinks = oldLinks.links.filter(
-              (link) => link.name !== currentLinkName
-            );
-
-            return { links: updatedLinks };
-          }
-        }
-      );
-
-      setLinkDeleteDialogOpen(false);
-
-      // Setting up the user preference, If any
-      if (linkDeletePopupCheck) {
-        // Expires after session over
-        Cookies.set(linkDeletePopupCookieKey, "yes");
-      }
-
-      // Return the context with previous value
-      return { previousLinks, previousTags };
-    },
-
-    onError(_error, _newLink, context) {
-      if (context) {
-        toast({
-          title: "Something went wrong",
           variant: "destructive",
         });
 
@@ -344,15 +271,19 @@ const LinksClient = () => {
     },
   });
 
+  // Effect for changing the tab value
   useEffect(() => {
     if (tabValue === "links") {
+      setGlobalSearch({ type: tabValue, searchText: "" });
       setLinkData(linkQuery.data as AllLinksAPIResponse | undefined);
     } else {
+      setGlobalSearch({ type: tabValue, searchText: "" });
       setSessionData(sessionQuery.data as AllSessionsAPIResponse | undefined);
     }
   }, [
     linkQuery.data,
     tabValue,
+    setGlobalSearch,
     setLinkData,
     sessionQuery.data,
     setSessionData,
@@ -361,7 +292,7 @@ const LinksClient = () => {
   useEffect(() => {
     useAppStore.setState((state) => {
       // For checking whether the search is for link or not
-      if (state.globalSearch.type === "link") {
+      if (state.globalSearch.type === "links") {
         // For ressting the link list when search is cleared
         if (state.globalSearch.searchText === "") {
           return {
@@ -369,8 +300,10 @@ const LinksClient = () => {
           };
         } else {
           // If links exist then only apply search
-          if (state.linkData?.links.length) {
-            const filteredLinks = state.linkData.links.filter(
+          if (linkQuery.data?.links.length) {
+            const filteredLinks = (
+              linkQuery.data.links as AllLinksAPIResponse["links"]
+            ).filter(
               (link) =>
                 link.name
                   .toLowerCase()
@@ -393,12 +326,13 @@ const LinksClient = () => {
           };
         } else {
           // If sessions exist then only apply search
-          if (state.sessionData?.sessions.length) {
-            const filteredSessions = state.sessionData.sessions.filter(
-              (session) =>
-                session.name
-                  .toLowerCase()
-                  .includes(state.globalSearch.searchText.toLowerCase())
+          if (sessionQuery.data?.sessions.length) {
+            const filteredSessions = (
+              sessionQuery.data.sessions as AllSessionsAPIResponse["sessions"]
+            ).filter((session) =>
+              session.name
+                .toLowerCase()
+                .includes(state.globalSearch.searchText.toLowerCase())
             );
 
             return { sessionData: { sessions: filteredSessions } };
@@ -408,7 +342,7 @@ const LinksClient = () => {
         }
       }
     });
-  }, [linkQuery.data, sessionQuery.data]);
+  }, [linkQuery.data, sessionQuery.data, globalSearch]);
 
   // This submit func will call only after the data of links have been fetched
   const onSubmit = useCallback(
@@ -469,17 +403,7 @@ const LinksClient = () => {
       lottieLoader
     ) : linkData?.links?.length ? (
       linkData?.links.map((link) => (
-        <Link
-          key={link.id}
-          name={link.name}
-          tags={link.tags}
-          url={link.url}
-          deletePopupCheck={linkDeletePopupCheck}
-          setDeletePopupCheck={setLinkDeletePopupCheck}
-          deleteDialogOpen={linkDeleteDialogOpen}
-          setDeleteDialogOpen={setLinkDeleteDialogOpen}
-          onLinkDelete={() => deleteMutation.mutate(link.name)}
-        />
+        <Link key={link.id} name={link.name} tags={link.tags} url={link.url} />
       ))
     ) : (
       <div className="flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center min-h-[200px] p-6">
@@ -533,7 +457,7 @@ const LinksClient = () => {
       >
         <Button
           type="button"
-          className="bg-accent-foreground hover:bg-accent-foreground/70"
+          className="border-2 bg-white text-text border-accent-foreground hover:bg-white/50"
         >
           <Filter /> Filter
         </Button>

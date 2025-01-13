@@ -38,7 +38,8 @@ export const nextAuthOptions: NextAuthOptions = {
     // user parameter will only be available after the signin, later it will be undefined
     jwt: ({ token, user, trigger }) => {
       // Preventing re-assigning the properties of the token if user is undefined
-      if (trigger === "signIn" && user) {
+
+      if ((trigger === "signIn" || trigger === "signUp") && user) {
         token.id = user?.id;
       }
 

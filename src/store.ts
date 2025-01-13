@@ -6,7 +6,7 @@ import {
 
 interface GlobalSearch {
   searchText: string;
-  type: "link" | "session";
+  type: "links" | "sessions";
 }
 
 interface AppState {
@@ -27,7 +27,7 @@ export const useAppStore = create<AppState>((set) => ({
   sessionData: undefined,
   globalSearch: {
     searchText: "",
-    type: "link",
+    type: "links",
   },
   // For loading of modifying of tags while updating the link
   tagMutationLoading: false,

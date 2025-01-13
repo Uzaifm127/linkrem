@@ -52,6 +52,7 @@ import { openLinks } from "@/lib/server-actions/open-links";
 import { useAppStore } from "@/store";
 import { tagQueryKey } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { cn } from "@/lib/utils";
 
 const AppSidebar = () => {
   const { data } = useSession();
@@ -132,7 +133,11 @@ const AppSidebar = () => {
                           tagData?.tags.map((tag) => (
                             <DropdownMenuItem
                               key={tag.id}
-                              className="cursor-pointer"
+                              className={cn(
+                                "cursor-pointer",
+                                (tagMutationLoading || tagOpeningLoading) &&
+                                  "cursor-not-allowed"
+                              )}
                               onClick={async () => {
                                 try {
                                   const linksStringArray = tag.links.map(

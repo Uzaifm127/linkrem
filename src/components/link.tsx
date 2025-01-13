@@ -58,20 +58,13 @@ import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 
-const Link: React.FC<LinkProps> = ({
-  name,
-  url,
-  tags,
-  deletePopupCheck,
-  setDeletePopupCheck,
-  deleteDialogOpen,
-  setDeleteDialogOpen,
-  onLinkDelete,
-}) => {
+const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
   // Extracting user preferences from cookies
   const dontShowDeletePopup = Cookies.get(linkDeletePopupCookieKey);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
+  const [linkDeletePopupCheck, setLinkDeletePopupCheck] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>(() => {
     const tagsState = tags.map((tag) => ({ id: uuid(), text: tag.tagName }));
 
@@ -194,6 +187,77 @@ const Link: React.FC<LinkProps> = ({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (currentLinkName: string) =>
+      await fetcher("/api/link", "DELETE", { currentLinkName } as {
+        currentLinkName: string;
+      }),
+
+    async onMutate(currentLinkName) {
+      // Doing mutation for links but also disabling the tags
+      setTagMutationLoading(true);
+
+      // Cancel outgoing refetches
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
+        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
+      ]);
+
+      // Getting the previous links
+      const previousLinks = queryClient.getQueryData([linkQueryKey]);
+
+      // Getting the previous tags associated with that link
+      const previousTags = queryClient.getQueryData([tagQueryKey]);
+
+      // Optimistically updating the query data
+      queryClient.setQueryData(
+        [linkQueryKey],
+        (oldLinks: AllLinksAPIResponse | undefined) => {
+          if (oldLinks) {
+            const updatedLinks = oldLinks.links.filter(
+              (link) => link.name !== currentLinkName
+            );
+
+            return { links: updatedLinks };
+          }
+        }
+      );
+
+      setLinkDeleteDialogOpen(false);
+
+      // Setting up the user preference, If any
+      if (linkDeletePopupCheck) {
+        // Expires after session over
+        Cookies.set(linkDeletePopupCookieKey, "yes");
+      }
+
+      // Return the context with previous value
+      return { previousLinks, previousTags };
+    },
+
+    onError(_error, _newLink, context) {
+      if (context) {
+        toast({
+          title: "Something went wrong",
+          variant: "destructive",
+        });
+
+        queryClient.setQueryData([linkQueryKey], context.previousLinks);
+        queryClient.setQueryData([tagQueryKey], context.previousTags);
+      }
+    },
+
+    async onSettled(_data, error) {
+      // queryClient.invalidateQueries({ queryKey: [linkQueryKey] });
+
+      // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+      }
+      setTagMutationLoading(false);
+    },
+  });
+
   // Link data must be there when we submit for update query
   const onSubmit = useCallback(
     (updatedLinkData: LinkForm) => {
@@ -243,9 +307,9 @@ const Link: React.FC<LinkProps> = ({
                 className="h-7 w-7 rounded-sm transition text-red-600 cursor-pointer hover:bg-red-200 p-1"
                 onClick={() => {
                   if (!!dontShowDeletePopup) {
-                    onLinkDelete();
+                    deleteMutation.mutate(name);
                   } else {
-                    setDeleteDialogOpen(true);
+                    setLinkDeleteDialogOpen(true);
                   }
                 }}
               />
@@ -300,8 +364,8 @@ const Link: React.FC<LinkProps> = ({
               </DialogContent>
             </Dialog>
             <AlertDialog
-              open={deleteDialogOpen}
-              onOpenChange={setDeleteDialogOpen}
+              open={linkDeleteDialogOpen}
+              onOpenChange={setLinkDeleteDialogOpen}
             >
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -314,10 +378,10 @@ const Link: React.FC<LinkProps> = ({
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="dont-show-again"
-                    checked={deletePopupCheck}
+                    checked={linkDeletePopupCheck}
                     onCheckedChange={(checked) => {
                       if (typeof checked === "boolean") {
-                        setDeletePopupCheck(checked);
+                        setLinkDeletePopupCheck(checked);
                       }
                     }}
                   />
@@ -334,7 +398,7 @@ const Link: React.FC<LinkProps> = ({
                   </AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-destructive/20 text-destructive border border-destructive hover:bg-destructive/40"
-                    onClick={() => onLinkDelete()}
+                    onClick={() => deleteMutation.mutate(name)}
                   >
                     Delete
                   </AlertDialogAction>

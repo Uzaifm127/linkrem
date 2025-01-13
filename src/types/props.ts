@@ -11,11 +11,6 @@ export interface LinkProps {
     updatedAt: Date;
   }>;
   url: string;
-  deletePopupCheck: boolean;
-  setDeletePopupCheck: React.Dispatch<React.SetStateAction<boolean>>;
-  deleteDialogOpen: boolean;
-  setDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  onLinkDelete: () => void;
 }
 
 export interface SVGProps {

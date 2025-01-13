@@ -45,7 +45,11 @@ const AppHeader = () => {
           <PopoverContent align="start">
             <Input
               type="search"
-              placeholder="Search by link name or URLs"
+              placeholder={
+                globalSearch.type === "links"
+                  ? "Search by link name or URLs"
+                  : "Search by session name"
+              }
               className="w-full bg-muted"
             />{" "}
           </PopoverContent>
@@ -55,7 +59,7 @@ const AppHeader = () => {
       <Input
         type="search"
         placeholder={
-          globalSearch.type === "link"
+          globalSearch.type === "links"
             ? "Search by link name or URLs"
             : "Search by session name"
         }
@@ -63,10 +67,10 @@ const AppHeader = () => {
         onChange={(e) => {
           const searchText = e.target.value;
 
-          if (globalSearch.type === "link") {
-            setGlobalSearch({ searchText, type: "link" });
+          if (globalSearch.type === "links") {
+            setGlobalSearch({ searchText, type: "links" });
           } else {
-            setGlobalSearch({ searchText, type: "session" });
+            setGlobalSearch({ searchText, type: "sessions" });
           }
         }}
       />

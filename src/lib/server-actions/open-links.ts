@@ -1,29 +1,19 @@
 "use server";
 
-import { exec } from "node:child_process";
+import open from "open";
 
+// Function to open multiple links
 export const openLinks = async (links: Array<string>) => {
-  const operatingSystem = process.platform;
-  let osSpecificCommand = "start";
-
-  switch (operatingSystem) {
-    case "darwin": // For macOS
-      osSpecificCommand = "open";
-      break;
-    case "win32": // For Windows
-      osSpecificCommand = "start";
-      break;
-    case "linux": // For linux
-      osSpecificCommand = "xdg-open";
-      break;
-
-    default:
-      osSpecificCommand = "xdg-open";
-      break;
+  try {
+    for (const link of links) {
+      // Open each link asynchronously
+      await open(link);
+      // Introduce a slight delay (optional) to avoid overwhelming the system
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return { success: true, message: 'All links opened successfully.' };
+  } catch (error) {
+    console.error('Error opening links:', error);
+    return { success: false, message: 'Failed to open links.' };
   }
-
-  const command =
-    `${osSpecificCommand} ` + links.join(` && ${osSpecificCommand} `);
-
-  exec(command);
 };
