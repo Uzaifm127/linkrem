@@ -31,6 +31,10 @@ export async function middleware(req: NextRequest) {
 
       const response = NextResponse.next({ headers });
 
+      if (req.method === "OPTIONS") {
+        return NextResponse.json(null, { headers });
+      }
+
       // Allow next-auth API routes without token
       if (pathname.startsWith("/api/auth")) {
         return response;
