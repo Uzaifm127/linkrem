@@ -2,12 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const headers = {
-  // change it later to specific
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+// const headers = {
+//   // change it later to specific
+//   "Access-Control-Allow-Origin": "*",
+//   "Access-Control-Allow-Methods": "GET, OPTIONS",
+//   "Access-Control-Allow-Headers": "Content-Type, Authorization",
+// };
 
 // // Added the OPTIONS method to allow CORS
 // export const OPTIONS = async () => {
@@ -32,13 +32,13 @@ export const GET = async (req: NextRequest) => {
       },
     });
 
-    return NextResponse.json({ links }, { headers });
+    return NextResponse.json({ links });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     return NextResponse.json(
       { message: error.message },
-      { status: 400, headers }
+      { status: 400 }
     );
   }
 };
