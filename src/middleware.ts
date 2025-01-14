@@ -46,7 +46,7 @@ export async function middleware(req: NextRequest) {
       } else {
         return NextResponse.json(
           { message: authenticationErrorMessage },
-          { status: 401 }
+          { status: 401, headers }
         );
       }
     }
