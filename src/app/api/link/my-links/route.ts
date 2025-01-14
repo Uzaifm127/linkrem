@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 const headers = {
   // change it later to specific
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
