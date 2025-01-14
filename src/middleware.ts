@@ -22,14 +22,23 @@ export async function middleware(req: NextRequest) {
 
     // Handle API routes
     if (pathname.startsWith("/api")) {
+      const headers = {
+        // change it later to specific
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      };
+
+      const response = NextResponse.next({ headers });
+
       // Allow next-auth API routes without token
       if (pathname.startsWith("/api/auth")) {
-        return NextResponse.next();
+        return response;
       }
 
       // Other API routes require authentication
       if (token) {
-        return NextResponse.next();
+        return response;
       } else {
         return NextResponse.json(
           { message: authenticationErrorMessage },
