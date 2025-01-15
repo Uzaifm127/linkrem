@@ -3,21 +3,6 @@ import { CreateSessionLinkRequest } from "@/types/server/request";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const headers = {
-  // change it later to specific
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, DELETE",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-// Added the OPTIONS method to allow CORS
-export const OPTIONS = async () => {
-  return NextResponse.json(null, {
-    status: 200,
-    headers,
-  });
-};
-
 export const POST = async (req: NextRequest) => {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
@@ -41,10 +26,7 @@ export const POST = async (req: NextRequest) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json(
-      { message: error.message },
-      { status: 400, headers }
-    );
+    return NextResponse.json({ message: error.message }, { status: 400 });
   }
 };
 
@@ -67,9 +49,6 @@ export const DELETE = async (req: NextRequest) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json(
-      { message: error.message },
-      { status: 400, headers }
-    );
+    return NextResponse.json({ message: error.message }, { status: 400 });
   }
 };

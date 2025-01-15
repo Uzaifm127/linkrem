@@ -2,13 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-// const headers = {
-//   // change it later to specific
-//   "Access-Control-Allow-Origin": "*",
-//   "Access-Control-Allow-Methods": "GET, OPTIONS",
-//   "Access-Control-Allow-Headers": "Content-Type, Authorization",
-// };
-
 // // Added the OPTIONS method to allow CORS
 // export const OPTIONS = async () => {
 //   return NextResponse.json(null, {
