@@ -11,9 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 // };
 
 export const GET = async (req: NextRequest) => {
-  try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
+  try {
     const links = await prisma.link.findMany({
       where: {
         // token must be here as it is protected route
@@ -30,7 +30,7 @@ export const GET = async (req: NextRequest) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     return NextResponse.json(
-      { message: error.message },
+      { message: error.message, token, tokenId: token!.id },
       { status: 400 }
     );
   }
