@@ -70,6 +70,15 @@ const AppHeader = () => {
                   : "Search by session name"
               }
               className="w-full bg-muted"
+              onChange={(e) => {
+                const searchText = e.target.value;
+
+                if (globalSearch.type === "links") {
+                  setGlobalSearch({ searchText, type: "links" });
+                } else {
+                  setGlobalSearch({ searchText, type: "sessions" });
+                }
+              }}
             />{" "}
           </PopoverContent>
         </Popover>
