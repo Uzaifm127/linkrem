@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   BadgeCheck,
   // Bell,
@@ -60,7 +60,7 @@ const AppSidebar = () => {
   const [clickedTag, setClickedTag] = useState("");
   const [tagOpeningLoading, setTagOpeningLoading] = useState(false);
 
-  const { tagMutationLoading } = useAppStore();
+  const { tagMutationLoading, setTagsData, tagsData } = useAppStore();
 
   const pathname = usePathname();
 
@@ -69,7 +69,9 @@ const AppSidebar = () => {
     queryFn: async () => await fetcher("/api/tags"),
   });
 
-  const tagData = tagQuery.data as AllTagsAPIResponse | undefined;
+  useEffect(() => {
+    setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
+  }, [setTagsData, tagQuery.data]);
 
   const onLogout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
@@ -114,7 +116,7 @@ const AppSidebar = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 max-h-60 [scrollbar-width:none] overflow-y-scroll rounded-lg bg-white">
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
-                        {tagQuery.isLoading || !tagData?.tags?.length ? (
+                        {tagQuery.isLoading || !tagsData?.tags?.length ? (
                           <div className="min-h-40 flex items-center justify-center w-full text-xl font-medium">
                             {tagQuery.isLoading ? (
                               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -130,7 +132,7 @@ const AppSidebar = () => {
                             )}
                           </div>
                         ) : (
-                          tagData?.tags.map((tag) => (
+                          tagsData?.tags.map((tag) => (
                             <DropdownMenuItem
                               key={tag.id}
                               className={cn(

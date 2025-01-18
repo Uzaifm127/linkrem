@@ -11,6 +11,7 @@ export interface LinkProps {
     updatedAt: Date;
   }>;
   url: string;
+  filteredTags: Array<never> | Array<string>;
 }
 
 export interface SVGProps {

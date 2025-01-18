@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   AllLinksAPIResponse,
   AllSessionsAPIResponse,
+  AllTagsAPIResponse,
 } from "./types/server/response";
 
 interface GlobalSearch {
@@ -11,11 +12,13 @@ interface GlobalSearch {
 
 interface AppState {
   linkData: AllLinksAPIResponse | undefined;
+  tagsData: AllTagsAPIResponse | undefined;
   sessionData: AllSessionsAPIResponse | undefined;
   globalSearch: GlobalSearch;
   tagMutationLoading: boolean;
   headerHeight: number;
   setLinkData: (linkData: AllLinksAPIResponse | undefined) => void;
+  setTagsData: (tagsData: AllTagsAPIResponse | undefined) => void;
   setSessionData: (sessionData: AllSessionsAPIResponse | undefined) => void;
   setGlobalSearch: (globalSearchedObject: Partial<GlobalSearch>) => void;
   setTagMutationLoading: (loading: boolean) => void;
@@ -24,6 +27,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   linkData: undefined,
+  tagsData: undefined,
   sessionData: undefined,
   globalSearch: {
     searchText: "",
@@ -33,6 +37,7 @@ export const useAppStore = create<AppState>((set) => ({
   tagMutationLoading: false,
   headerHeight: 0,
   setLinkData: (linkData) => set(() => ({ linkData })),
+  setTagsData: (tagsData) => set(() => ({ tagsData })),
   setSessionData: (sessionData) => set(() => ({ sessionData })),
   setGlobalSearch: (globalSearchedObject) =>
     set(({ globalSearch }) => ({

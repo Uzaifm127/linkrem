@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { Filter, Plus, Sparkles } from "lucide-react";
+import { X, Filter, Plus, Sparkles } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "@/components/link";
 import {
@@ -62,6 +62,7 @@ import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 import { sessionDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { Session } from "@/components/session";
+import { cn } from "@/lib/utils";
 
 type TabValueType = "links" | "sessions";
 
@@ -72,6 +73,17 @@ const LinksClient = () => {
   const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
   const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
+  const [filteredTags, setFilteredTags] = useState<
+    Array<string> | Array<never>
+  >([]);
+  const [filterChips, setFilterChips] = useState<
+    Array<never> | Array<{ name: string; filterApplied: boolean }>
+  >([]);
+
+  // To reset the inner dialog tags on clear the search box
+  const filteredTagsRef = useRef<
+    Array<never> | Array<{ name: string; filterApplied: boolean }> | null
+  >(null);
 
   const { data: session } = useSession();
 
@@ -82,6 +94,7 @@ const LinksClient = () => {
     sessionData,
     setTagMutationLoading,
     headerHeight,
+    tagsData,
     globalSearch,
     setGlobalSearch,
   } = useAppStore();
@@ -290,6 +303,18 @@ const LinksClient = () => {
   ]);
 
   useEffect(() => {
+    if (tagsData?.tags) {
+      const tagsForFilter = tagsData.tags.map((tag) => ({
+        name: tag.tagName,
+        filterApplied: false,
+      }));
+
+      filteredTagsRef.current = tagsForFilter;
+      setFilterChips(tagsForFilter);
+    }
+  }, [tagsData?.tags]);
+
+  useEffect(() => {
     useAppStore.setState((state) => {
       // For checking whether the search is for link or not
       if (state.globalSearch.type === "links") {
@@ -387,6 +412,8 @@ const LinksClient = () => {
     [mutation, linkData, linkForm, toast, inputTags]
   );
 
+  console.log(filteredTags);
+
   const lottieLoader = (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
       <DotLottieReact
@@ -403,7 +430,13 @@ const LinksClient = () => {
       lottieLoader
     ) : linkData?.links?.length ? (
       linkData?.links.map((link) => (
-        <Link key={link.id} name={link.name} tags={link.tags} url={link.url} />
+        <Link
+          key={link.id}
+          name={link.name}
+          tags={link.tags}
+          url={link.url}
+          filteredTags={filteredTags}
+        />
       ))
     ) : (
       <div className="flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center min-h-[200px] p-6">
@@ -455,12 +488,93 @@ const LinksClient = () => {
         className="flex justify-between items-center p-4 sticky left-0 bg-background"
         style={{ top: `${headerHeight}px` }}
       >
-        <Button
-          type="button"
-          className="border-2 bg-white text-text border-accent-foreground hover:bg-white/50"
-        >
-          <Filter /> Filter
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              className={cn(
+                filteredTags.length
+                  ? "text-background relative bg-primary hover:bg-primary/80"
+                  : "bg-white text-text border-accent-foreground hover:bg-white/50"
+              )}
+            >
+              {(filteredTags.length > 0) && (
+                <sup className="rounded-full left-[9%] top-[4%] absolute min-w-[1rem] text-[0.55rem] text-xs bg-red-600">
+                  {filteredTags.length}
+                </sup>
+              )}
+              <Filter /> Filter
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="bg-slate-100 space-y-4 lg:w-96 md:w-80 sm:w-60 w-40"
+            align="start"
+          >
+            {/* <div className="p-4 pb-0">
+              <Input
+                type="search"
+                placeholder="Enter tag name"
+                className="bg-white w-full"
+                onChange={(e) => {
+                  const searchText = e.target.value;
+
+                  if (searchText) {
+                  } else {
+                    setFilterChips(filteredTagsRef?.current);
+                  }
+                }}
+              />{" "}
+            </div> */}
+            <div className="max-h-64 p-4 overflow-y-scroll [scrollbar-width:none] flex flex-wrap gap-4">
+              {filterChips.map((tag) => {
+                return (
+                  <Button
+                    key={tag.name}
+                    className={cn(
+                      "transition duration-250",
+                      tag.filterApplied
+                        ? "bg-primary flex items-center gap-3 hover:bg-primary/80 text-background"
+                        : "bg-white hover:bg-slate-100 text-text"
+                    )}
+                    onClick={() => {
+                      setFilterChips((prev) => {
+                        const newFilteredChips = prev.map(
+                          (innerTagInstance) => {
+                            if (innerTagInstance.name === tag.name) {
+                              return {
+                                ...innerTagInstance,
+                                filterApplied: tag.filterApplied ? false : true,
+                              };
+                            } else {
+                              return {
+                                ...innerTagInstance,
+                              };
+                            }
+                          }
+                        );
+
+                        return newFilteredChips;
+                      });
+
+                      if (tag.filterApplied) {
+                        setFilteredTags((prev) => {
+                          return prev.filter(
+                            (filteredTag) => filteredTag !== tag.name
+                          );
+                        });
+                      } else {
+                        setFilteredTags((prev) => [...prev, tag.name]);
+                      }
+                    }}
+                  >
+                    {tag.name}
+                    {tag.filterApplied && <X />}
+                  </Button>
+                );
+              })}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="flex gap-4">
           <Tabs

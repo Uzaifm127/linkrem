@@ -57,10 +57,18 @@ import { Tag } from "emblor";
 import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
-const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
+const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
   // Extracting user preferences from cookies
   const dontShowDeletePopup = Cookies.get(linkDeletePopupCookieKey);
+
+  // Checking if the element is filtered out or not
+  const filteredTagsSet = new Set(filteredTags);
+
+  const isThisElementFiltered = tags.some((tag) =>
+    filteredTagsSet.has(tag.tagName)
+  );
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
@@ -293,7 +301,16 @@ const Link: React.FC<LinkProps> = ({ name, url, tags }) => {
   );
 
   return (
-    <Card className="bg-white flex flex-col justify-between">
+    <Card
+      className={cn(
+        filteredTags.length < 1
+          ? "flex"
+          : isThisElementFiltered
+          ? "flex"
+          : "hidden",
+        "bg-white flex-col justify-between"
+      )}
+    >
       <div>
         <CardHeader>
           <CardTitle className="flex justify-between items-start text-ellipsis overflow-hidden">
