@@ -286,6 +286,8 @@ const LinksClient = () => {
 
   // Effect for changing the tab value
   useEffect(() => {
+    window.postMessage("hello world", "*");
+
     if (tabValue === "links") {
       setGlobalSearch({ type: tabValue, searchText: "" });
       setLinkData(linkQuery.data as AllLinksAPIResponse | undefined);
@@ -498,7 +500,7 @@ const LinksClient = () => {
                   : "bg-white text-text border-accent-foreground hover:bg-white/50"
               )}
             >
-              {(filteredTags.length > 0) && (
+              {filteredTags.length > 0 && (
                 <sup className="rounded-full left-[9%] top-[4%] absolute min-w-[1rem] text-[0.55rem] text-xs bg-red-600">
                   {filteredTags.length}
                 </sup>
