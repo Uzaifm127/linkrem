@@ -4,12 +4,8 @@ import React, { ReactNode } from "react";
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { useExtensionAuthenticate } from "@/hooks/use-extension-authenticate";
 
 const Providers: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // For sending the authentication status to the extension
-  useExtensionAuthenticate();
-
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
