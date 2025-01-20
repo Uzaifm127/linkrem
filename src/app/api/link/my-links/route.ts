@@ -29,9 +29,6 @@ export const GET = async (req: NextRequest) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json(
-      { message: error.message, token, tokenId: token!.id },
-      { status: 400 }
-    );
+    return NextResponse.json({ message: error.message }, { status: 400 });
   }
 };

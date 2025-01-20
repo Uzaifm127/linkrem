@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import "@/styles/globals.css";
 import Providers from "./providers";
+import ExtensionAuthentication from "./extension-authentication";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={cn(inter.className)}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <ExtensionAuthentication>{children}</ExtensionAuthentication>
+        </Providers>
       </body>
     </html>
   );

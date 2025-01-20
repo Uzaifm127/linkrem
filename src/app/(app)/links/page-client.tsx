@@ -286,8 +286,6 @@ const LinksClient = () => {
 
   // Effect for changing the tab value
   useEffect(() => {
-    window.postMessage("hello world", "*");
-
     if (tabValue === "links") {
       setGlobalSearch({ type: tabValue, searchText: "" });
       setLinkData(linkQuery.data as AllLinksAPIResponse | undefined);
