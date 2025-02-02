@@ -46,6 +46,7 @@ const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
   }, [session]);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const messageListener = (e: MessageEvent<any>) => {
       const message = e.data;
 
@@ -59,7 +60,7 @@ const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
     window.addEventListener("message", messageListener);
 
     return () => window.removeEventListener("message", messageListener);
-  }, []);
+  }, [setTagOpeningLoading]);
 
   return <>{children}</>;
 };
