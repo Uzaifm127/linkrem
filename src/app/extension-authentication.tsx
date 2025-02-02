@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppStore } from "@/store";
 import { useSession } from "next-auth/react";
 import React, { ReactNode, useEffect } from "react";
 
@@ -7,6 +8,8 @@ const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { data: session } = useSession();
+
+  const { setTagOpeningLoading } = useAppStore();
 
   useEffect(() => {
     if (session) {
@@ -41,6 +44,22 @@ const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
       );
     }
   }, [session]);
+
+  useEffect(() => {
+    const messageListener = (e: MessageEvent<any>) => {
+      const message = e.data;
+
+      console.log("message", message);
+
+      if (message.action === "openMultipleLinksResponse") {
+        setTagOpeningLoading(false);
+      }
+    };
+
+    window.addEventListener("message", messageListener);
+
+    return () => window.removeEventListener("message", messageListener);
+  }, []);
 
   return <>{children}</>;
 };

@@ -57,9 +57,14 @@ const AppSidebar = () => {
   const { data } = useSession();
 
   const [clickedTag, setClickedTag] = useState("");
-  const [tagOpeningLoading, setTagOpeningLoading] = useState(false);
 
-  const { tagMutationLoading, setTagsData, tagsData } = useAppStore();
+  const {
+    tagMutationLoading,
+    setTagsData,
+    tagsData,
+    tagOpeningLoading,
+    setTagOpeningLoading,
+  } = useAppStore();
 
   const pathname = usePathname();
 
@@ -79,8 +84,6 @@ const AppSidebar = () => {
     };
 
     window.postMessage(tagLinksOpenMessage, "*");
-
-    setTagOpeningLoading(false);
   }, []);
 
   const onLogout = useCallback(async () => {
