@@ -48,7 +48,6 @@ import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import { AllTagsAPIResponse } from "@/types/server/response";
 import AppIcon from "@/components/ui/app-icon";
-import { openLinks } from "@/lib/server-actions/open-links";
 import { useAppStore } from "@/store";
 import { tagQueryKey } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -72,6 +71,17 @@ const AppSidebar = () => {
   useEffect(() => {
     setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
   }, [setTagsData, tagQuery.data]);
+
+  const openLinks = useCallback((links: Array<string>) => {
+    const tagLinksOpenMessage = {
+      action: "openLinks",
+      linksToOpen: links,
+    };
+
+    window.postMessage(tagLinksOpenMessage, "*");
+
+    setTagOpeningLoading(false);
+  }, []);
 
   const onLogout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
@@ -148,7 +158,7 @@ const AppSidebar = () => {
 
                                   setTagOpeningLoading(true);
 
-                                  await openLinks(linksStringArray);
+                                  openLinks(linksStringArray);
                                 } catch (error) {
                                   console.error(error);
                                 } finally {
