@@ -72,7 +72,9 @@ const LinksClient = () => {
   const [tabValue, setTabValue] = useState<TabValueType>("links");
   const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
   const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
+  const [shortcutOpen, setShortcutOpen] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
+  const [shortcut, setShortcut] = useState("");
   const [filteredTags, setFilteredTags] = useState<
     Array<string> | Array<never>
   >([]);
@@ -181,7 +183,7 @@ const LinksClient = () => {
               ],
             };
           }
-        }
+        },
       );
 
       setDialogOpen(false);
@@ -245,12 +247,12 @@ const LinksClient = () => {
         (oldSessions: AllSessionsAPIResponse | undefined) => {
           if (oldSessions) {
             const updatedSessions = oldSessions.sessions.filter(
-              (session) => session.name !== currentSessionName
+              (session) => session.name !== currentSessionName,
             );
 
             return { sessions: updatedSessions };
           }
-        }
+        },
       );
 
       setSessionDeleteDialogOpen(false);
@@ -283,6 +285,33 @@ const LinksClient = () => {
       }
     },
   });
+
+  // For capturing the keyboard shortcuts
+  useEffect(() => {
+    const shortcutEventListener = (e: KeyboardEvent) => {
+      e.preventDefault();
+
+      const key = e.key;
+
+      if (shortcutOpen) {
+        if (e.ctrlKey) {
+          if (e.key !== "Control") {
+            setShortcut(`ctrl ${key}`);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", shortcutEventListener);
+
+    if (!shortcutOpen) {
+      window.removeEventListener("keydown", shortcutEventListener);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", shortcutEventListener);
+    };
+  }, [shortcutOpen, shortcut]);
 
   // Effect for changing the tab value
   useEffect(() => {
@@ -335,7 +364,7 @@ const LinksClient = () => {
                   .includes(state.globalSearch.searchText.toLowerCase()) ||
                 link.url
                   .toLowerCase()
-                  .includes(state.globalSearch.searchText.toLowerCase())
+                  .includes(state.globalSearch.searchText.toLowerCase()),
             );
 
             return { linkData: { links: filteredLinks } };
@@ -357,7 +386,7 @@ const LinksClient = () => {
             ).filter((session) =>
               session.name
                 .toLowerCase()
-                .includes(state.globalSearch.searchText.toLowerCase())
+                .includes(state.globalSearch.searchText.toLowerCase()),
             );
 
             return { sessionData: { sessions: filteredSessions } };
@@ -373,10 +402,10 @@ const LinksClient = () => {
   const onSubmit = useCallback(
     (linkFormData: LinkForm) => {
       const nameExist = linkData!.links.some(
-        (link) => link.name.toLowerCase() === linkFormData.name.toLowerCase()
+        (link) => link.name.toLowerCase() === linkFormData.name.toLowerCase(),
       );
       const URLExist = linkData!.links.some(
-        (link) => link.url === linkFormData.url
+        (link) => link.url === linkFormData.url,
       );
 
       if (nameExist || URLExist) {
@@ -409,10 +438,8 @@ const LinksClient = () => {
       // Checking duplication link name and url is remaining on server but client side validation done.
       mutation.mutate(link);
     },
-    [mutation, linkData, linkForm, toast, inputTags]
+    [mutation, linkData, linkForm, toast, inputTags],
   );
-
-  console.log(filteredTags);
 
   const lottieLoader = (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -495,7 +522,7 @@ const LinksClient = () => {
               className={cn(
                 filteredTags.length
                   ? "text-background relative bg-primary hover:bg-primary/80"
-                  : "bg-white text-text border-accent-foreground hover:bg-white/50"
+                  : "bg-white text-text border-accent-foreground hover:bg-white/50",
               )}
             >
               {filteredTags.length > 0 && (
@@ -534,7 +561,7 @@ const LinksClient = () => {
                       "transition duration-250",
                       tag.filterApplied
                         ? "bg-primary flex items-center gap-3 hover:bg-primary/80 text-background"
-                        : "bg-white hover:bg-slate-100 text-text"
+                        : "bg-white hover:bg-slate-100 text-text",
                     )}
                     onClick={() => {
                       setFilterChips((prev) => {
@@ -550,7 +577,7 @@ const LinksClient = () => {
                                 ...innerTagInstance,
                               };
                             }
-                          }
+                          },
                         );
 
                         return newFilteredChips;
@@ -559,7 +586,7 @@ const LinksClient = () => {
                       if (tag.filterApplied) {
                         setFilteredTags((prev) => {
                           return prev.filter(
-                            (filteredTag) => filteredTag !== tag.name
+                            (filteredTag) => filteredTag !== tag.name,
                           );
                         });
                       } else {
@@ -666,6 +693,56 @@ const LinksClient = () => {
                         />
                       </div>
 
+                      <div className="space-y-1">
+                        <Label>Shortcut {"(optional)"}</Label>
+
+                        <div className="flex gap-3">
+                          {shortcut && (
+                            <Button
+                              type="button"
+                              className="w-full cursor-none pointer-events-none bg-gray-100 text-gray-700 hover:bg-gray-100"
+                            >
+                              {shortcut.toUpperCase()}
+                            </Button>
+                          )}
+
+                          <Dialog
+                            open={shortcutOpen}
+                            onOpenChange={setShortcutOpen}
+                          >
+                            <DialogTrigger asChild className="block">
+                              <Button type="button" className="w-full">
+                                {shortcut ? "Edit" : "Add"} shortcut
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>
+                                  Type the shortcut here
+                                </DialogTitle>
+                              </DialogHeader>
+
+                              <div className="h-28 border-4 border-dotted gap-3 rounded-lg flex items-center justify-center">
+                                {shortcut ? (
+                                  shortcut.split(" ").map((key) => (
+                                    <div
+                                      key={key + Date.now()}
+                                      className="text-2xl text-gray-700 uppercase"
+                                    >
+                                      {key}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <h3 className="text-2xl text-muted-foreground">
+                                    Enter the shortcuts here
+                                  </h3>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </div>
+
                       <Button type="submit">Save Link</Button>
                     </form>
                   </Form>
@@ -679,7 +756,7 @@ const LinksClient = () => {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
         {listData.current}
       </div>
     </div>
