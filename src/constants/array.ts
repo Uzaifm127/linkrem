@@ -1,4 +1,4 @@
-import { Bookmark, Command, Link, Tag } from "lucide-react";
+import { Command, Link, Tag } from "lucide-react";
 import { v4 as uuid } from "uuid";
 
 export const sidebarPlatformItems = [
@@ -19,11 +19,5 @@ export const sidebarPlatformItems = [
     title: "Shortcuts",
     icon: Command,
     url: "/shortcuts",
-  },
-  {
-    id: uuid(),
-    title: "Sessions",
-    icon: Bookmark,
-    url: "/sessions",
   },
 ];

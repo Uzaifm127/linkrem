@@ -12,14 +12,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema } from "@/lib/zod-schemas";
 import { LoginForm } from "@/types";
 import { signIn } from "next-auth/react";
+import { LoaderCircle } from "lucide-react";
 
 const LoginClient = () => {
+  const [authLoading, setAuthLoading] = useState(false);
+
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     mode: "onSubmit",
@@ -40,10 +43,36 @@ const LoginClient = () => {
       <Button
         type="button"
         className="flex w-full items-center gap-3 bg-white hover:bg-slate-50 text-text border shadow-none"
-        onClick={async () => await signIn("google", { callbackUrl: "/links" })}
+        disabled={authLoading}
+        onClick={async () => {
+          setAuthLoading(true);
+
+          try {
+            const authResult = await signIn("google", {
+              callbackUrl: "/links",
+              redirect: false,
+            });
+
+            if (authResult?.error) {
+              throw new Error("Authentication error:" + authResult.error);
+            } else if (authResult?.ok && authResult?.url) {
+              window.location.href = authResult?.url;
+            }
+          } catch (error) {
+            console.error(error);
+          } finally {
+            setAuthLoading(false);
+          }
+        }}
       >
-        <GoogleIcon className="h-6 w-6" />
-        Sign in with Google
+        {authLoading ? (
+          <LoaderCircle className="animate-spin" />
+        ) : (
+          <>
+            <GoogleIcon className="h-6 w-6" />
+            Sign in with Google
+          </>
+        )}
       </Button>
 
       <div className="flex items-center justify-center w-full text-text-foreground gap-2">

@@ -1,33 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { CreateSessionLinkRequest } from "@/types/server/request";
+import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const headers = {
-  // change it later to specific
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
-// Added the OPTIONS method to allow CORS
-export const OPTIONS = async () => {
-  return NextResponse.json(null, {
-    status: 200,
-    headers,
-  });
-};
-
 export const POST = async (req: NextRequest) => {
-  try {
-    const { name, links }: CreateSessionLinkRequest = await req.json();
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-    await prisma.sessionLinks.create({
+  try {
+    const { name, sessionLinks }: CreateSessionLinkRequest = await req.json();
+
+    await prisma.linkSessions.create({
       data: {
         name,
-        links: {
-          connectOrCreate: links.map((link) => ({
-            where: { name: link.name, url: link.url },
-            create: { name: link.name, url: link.url },
+        user: { connect: { id: token!.id } },
+        sessionLinks: {
+          create: sessionLinks.map((sessionLink) => ({
+            name: sessionLink.name,
+            url: sessionLink.url,
           })),
         },
       },
@@ -37,9 +26,29 @@ export const POST = async (req: NextRequest) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    return NextResponse.json(
-      { message: error.message },
-      { status: 400, headers }
-    );
+    return NextResponse.json({ message: error.message }, { status: 400 });
+  }
+};
+
+export const DELETE = async (req: NextRequest) => {
+  try {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const { currentSessionName }: { currentSessionName: string } =
+      await req.json();
+
+    await prisma.linkSessions.delete({
+      where: {
+        name_userId: {
+          name: currentSessionName,
+          userId: token!.id,
+        },
+      },
+    });
+
+    return NextResponse.json({ message: "Session deleted successfully" });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    return NextResponse.json({ message: error.message }, { status: 400 });
   }
 };

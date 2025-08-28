@@ -6,12 +6,18 @@ export const GET = async (req: NextRequest) => {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-    const tags = await prisma.tag.findMany({
-      where: { userId: token!.id },
-      include: { links: true },
+    const sessions = await prisma.linkSessions.findMany({
+      where: {
+        // token must be here as it is protected route
+        userId: token!.id,
+      },
+
+      include: {
+        sessionLinks: true,
+      },
     });
 
-    return NextResponse.json({ tags });
+    return NextResponse.json({ sessions });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {

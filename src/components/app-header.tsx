@@ -13,9 +13,27 @@ import {
 import { useAppStore } from "@/store";
 
 const AppHeader = () => {
-  const { setHeaderHeight } = useAppStore();
+  const { setHeaderHeight, setGlobalSearch, globalSearch } = useAppStore();
 
   const headerRef = useRef<HTMLElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const searchShortcutEventHandler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "k") {
+        e.preventDefault();
+
+        if (searchInputRef.current) {
+          searchInputRef.current?.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", searchShortcutEventHandler);
+
+    return () =>
+      window.removeEventListener("keydown", searchShortcutEventHandler);
+  }, []);
 
   useEffect(() => {
     if (headerRef.current?.offsetHeight) {
@@ -44,20 +62,53 @@ const AppHeader = () => {
           </PopoverTrigger>
           <PopoverContent align="start">
             <Input
+              ref={searchInputRef}
               type="search"
-              placeholder="Search Link Name"
+              placeholder={
+                globalSearch.type === "links"
+                  ? "Search by link name or URLs"
+                  : "Search by session name"
+              }
               className="w-full bg-muted"
+              onChange={(e) => {
+                const searchText = e.target.value;
+
+                if (globalSearch.type === "links") {
+                  setGlobalSearch({ searchText, type: "links" });
+                } else {
+                  setGlobalSearch({ searchText, type: "sessions" });
+                }
+              }}
             />{" "}
           </PopoverContent>
         </Popover>
       </div>
 
-      <Input
-        type="search"
-        placeholder="Search Link Name"
-        className="w-[40vw] md:w-[35vw] lg:w-[30rem] max-sm:hidden bg-muted"
-        disabled
-      />
+      <div className="w-[40vw] md:w-[35vw] lg:w-[30rem] max-sm:hidden relative">
+        <div className="absolute top-1/2 -translate-y-1/2 right-[3%] text-xs p-1 rounded-sm text-muted-foreground">
+          CTRL + K
+        </div>
+
+        <Input
+          ref={searchInputRef}
+          type="search"
+          placeholder={
+            globalSearch.type === "links"
+              ? "Search by link name or URLs"
+              : "Search by session name"
+          }
+          className="w-full bg-muted"
+          onChange={(e) => {
+            const searchText = e.target.value;
+
+            if (globalSearch.type === "links") {
+              setGlobalSearch({ searchText, type: "links" });
+            } else {
+              setGlobalSearch({ searchText, type: "sessions" });
+            }
+          }}
+        />
+      </div>
 
       <div className="flex items-center gap-3">
         {/* <Button variant="outline" type="button">

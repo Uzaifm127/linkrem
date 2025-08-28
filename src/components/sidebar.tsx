@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   BadgeCheck,
   // Bell,
@@ -48,18 +48,23 @@ import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import { AllTagsAPIResponse } from "@/types/server/response";
 import AppIcon from "@/components/ui/app-icon";
-import { openLinks } from "@/lib/server-actions/open-links";
 import { useAppStore } from "@/store";
 import { tagQueryKey } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { cn } from "@/lib/utils";
 
 const AppSidebar = () => {
   const { data } = useSession();
 
   const [clickedTag, setClickedTag] = useState("");
-  const [tagOpeningLoading, setTagOpeningLoading] = useState(false);
 
-  const { tagMutationLoading } = useAppStore();
+  const {
+    tagMutationLoading,
+    setTagsData,
+    tagsData,
+    tagOpeningLoading,
+    setTagOpeningLoading,
+  } = useAppStore();
 
   const pathname = usePathname();
 
@@ -68,7 +73,18 @@ const AppSidebar = () => {
     queryFn: async () => await fetcher("/api/tags"),
   });
 
-  const tagData = tagQuery.data as AllTagsAPIResponse | undefined;
+  useEffect(() => {
+    setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
+  }, [setTagsData, tagQuery.data]);
+
+  const openLinks = useCallback((links: Array<string>) => {
+    const tagLinksOpenMessage = {
+      action: "openLinks",
+      linksToOpen: links,
+    };
+
+    window.postMessage(tagLinksOpenMessage, "*");
+  }, []);
 
   const onLogout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
@@ -113,7 +129,7 @@ const AppSidebar = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 max-h-60 [scrollbar-width:none] overflow-y-scroll rounded-lg bg-white">
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
-                        {tagQuery.isLoading || !tagData?.tags?.length ? (
+                        {tagQuery.isLoading || !tagsData?.tags?.length ? (
                           <div className="min-h-40 flex items-center justify-center w-full text-xl font-medium">
                             {tagQuery.isLoading ? (
                               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -129,10 +145,14 @@ const AppSidebar = () => {
                             )}
                           </div>
                         ) : (
-                          tagData?.tags.map((tag) => (
+                          tagsData?.tags.map((tag) => (
                             <DropdownMenuItem
                               key={tag.id}
-                              className="cursor-pointer"
+                              className={cn(
+                                "cursor-pointer",
+                                (tagMutationLoading || tagOpeningLoading) &&
+                                  "cursor-not-allowed"
+                              )}
                               onClick={async () => {
                                 try {
                                   const linksStringArray = tag.links.map(
@@ -141,7 +161,7 @@ const AppSidebar = () => {
 
                                   setTagOpeningLoading(true);
 
-                                  await openLinks(linksStringArray);
+                                  openLinks(linksStringArray);
                                 } catch (error) {
                                   console.error(error);
                                 } finally {

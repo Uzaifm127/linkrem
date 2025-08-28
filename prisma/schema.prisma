@@ -16,8 +16,13 @@ model User {
   image         String?
   accounts      Account[]
   HashPassword  HashPassword?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  links         Link[]
+
+  // Making the relation of tags with user to prevent the duplication of tags for the same user
+  tags         Tag[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  linkSessions LinkSessions[]
 }
 
 model Account {
@@ -52,28 +57,61 @@ model HashPassword {
 }
 
 model Link {
-  id             String        @id @default(uuid())
-  name           String        @unique
-  url            String        @unique
-  tags           Tag[]         @relation("LinkTag")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  sessionLinksId String?
-  sessionLinks   SessionLinks? @relation(fields: [sessionLinksId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid())
+  name      String
+  url       String
+  tags      Tag[]     @relation("LinkTag")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortcut  Shortcut?
+
+  @@unique([name, userId])
+}
+
+model Shortcut {
+  id          String   @id @default(uuid())
+  shortcutKey String   
+  linkId      String   @unique
+  link        Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([shortcutKey, linkId])
 }
 
 model Tag {
   id        String   @id @default(uuid())
-  tagName   String   @unique
+  tagName   String
+  locked    Boolean  @default(false)
   links     Link[]   @relation("LinkTag")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tagName, userId])
+}
+
+model LinkSessions {
+  id           String         @id @default(uuid())
+  name         String
+  sessionLinks SessionLinks[]
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([name, userId])
 }
 
 model SessionLinks {
-  id        String   @id @default(uuid())
-  name      String
-  links     Link[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String       @id @default(uuid())
+  name          String
+  url           String
+  linkSessionId String
+  linkSession   LinkSessions @relation(fields: [linkSessionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }

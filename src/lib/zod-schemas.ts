@@ -11,5 +11,4 @@ export const linkSchema = z.object({
     .string()
     .min(1, { message: "Required" })
     .url({ message: "Invalid URL" }),
-  tags: z.string(),
 });
