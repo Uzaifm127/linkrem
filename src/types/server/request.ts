@@ -4,6 +4,7 @@ export interface CreateLinkRequest {
   name: string;
   url: string;
   tags: Array<string>;
+  shortcut: string;
 }
 
 export interface UpdateLinkRequest extends LinkDataForUpdate {

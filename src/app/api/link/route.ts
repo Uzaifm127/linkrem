@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const POST = async (req: NextRequest) => {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-    const { name, url, tags }: CreateLinkRequest = await req.json();
+    const { name, url, tags, shortcut }: CreateLinkRequest = await req.json();
 
     if (!name || !url) {
       throw new Error("Invalid Name or URL");
@@ -19,6 +19,7 @@ export const POST = async (req: NextRequest) => {
       data: {
         name,
         url,
+        // This is to make the many to many relation
         // Optionally creating tags
         ...(isTagsExist && {
           tags: {
@@ -30,8 +31,15 @@ export const POST = async (req: NextRequest) => {
             })),
           },
         }),
+        // This is the convenient way to connect the already existing entity
+        // userId
         user: {
           connect: { id: token!.id },
+        },
+        shortcut: {
+          create: {
+            shortcutKey: shortcut,
+          },
         },
       },
     });
