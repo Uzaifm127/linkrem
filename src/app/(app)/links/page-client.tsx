@@ -344,6 +344,12 @@ const LinksClient = () => {
   }, [tagsData?.tags]);
 
   useEffect(() => {
+    if (!dialogOpen) {
+      setShortcut("");
+    }
+  }, [dialogOpen]);
+
+  useEffect(() => {
     useAppStore.setState((state) => {
       // For checking whether the search is for link or not
       if (state.globalSearch.type === "links") {
@@ -433,12 +439,12 @@ const LinksClient = () => {
 
       const tags = tagParser(inputTags);
 
-      const link = { ...linkFormData, tags };
+      const link = { ...linkFormData, tags, shortcut };
 
       // Checking duplication link name and url is remaining on server but client side validation done.
       mutation.mutate(link);
     },
-    [mutation, linkData, linkForm, toast, inputTags],
+    [mutation, linkData, linkForm, toast, inputTags, shortcut],
   );
 
   const lottieLoader = (
@@ -697,14 +703,14 @@ const LinksClient = () => {
                         <Label>Shortcut {"(optional)"}</Label>
 
                         <div className="flex gap-3">
-                          {shortcut && (
-                            <Button
-                              type="button"
-                              className="w-full cursor-none pointer-events-none bg-gray-100 text-gray-700 hover:bg-gray-100"
-                            >
-                              {shortcut.toUpperCase()}
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            className="w-full cursor-none pointer-events-none bg-gray-100 text-gray-700 hover:bg-gray-100"
+                          >
+                            {shortcut
+                              ? shortcut.toUpperCase()
+                              : "Select the shortcut"}
+                          </Button>
 
                           <Dialog
                             open={shortcutOpen}
