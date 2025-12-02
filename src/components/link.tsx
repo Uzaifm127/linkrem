@@ -58,6 +58,7 @@ import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { boxShadowVariant1Style } from "@/constants";
 
 const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
   // Extracting user preferences from cookies
@@ -306,10 +307,11 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
         filteredTags.length < 1
           ? "flex"
           : isThisElementFiltered
-          ? "flex"
-          : "hidden",
+            ? "flex"
+            : "hidden",
         "bg-white flex-col justify-between"
       )}
+      style={boxShadowVariant1Style}
     >
       <div>
         <CardHeader>

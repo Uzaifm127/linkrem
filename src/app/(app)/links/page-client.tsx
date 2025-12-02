@@ -8,9 +8,14 @@ import React, {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Filter, Plus, Sparkles } from "lucide-react";
+import { X, Filter, Plus, Sparkles, Info } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "@/components/link";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -476,7 +481,7 @@ const LinksClient = () => {
         <div>
           <Sparkles className="w-10 h-10 text-muted-foreground mb-4" />
         </div>
-        <h3 className="text-lg font-semibold mb-1">No Links Found</h3>
+        <h3 className="text-lg font-semibold mb-1">No links found</h3>
         <p className="text-sm text-muted-foreground">
           Create a link to get started.
         </p>
@@ -499,7 +504,7 @@ const LinksClient = () => {
           onDeleteSession={(sessionName) =>
             sessionDeleteMutation.mutate(sessionName)
           }
-          onSessionLinkDelete={() => {}}
+          onSessionLinkDelete={() => { }}
         />
       ))
     ) : (
@@ -651,9 +656,10 @@ const LinksClient = () => {
                     Add link
                   </DropdownMenuItem>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent
+                >
                   <DialogHeader>
-                    <DialogTitle>Add New Link</DialogTitle>
+                    <DialogTitle>Add new link</DialogTitle>
                     <DialogDescription>
                       Enter the details of the link you want to save.
                     </DialogDescription>
@@ -691,8 +697,27 @@ const LinksClient = () => {
                         )}
                       />
 
-                      <div className="space-y-1">
-                        <Label>Tags {"(optional)"}</Label>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1">
+                          <Label>Tags {"(optional)"}</Label>
+
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80" align="start" portal={false}>
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-sm">How to add tags</h4>
+                                <ul className="text-sm text-slate-600 space-y-1">
+                                  <li>• Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono">Space</kbd> to add a tag</li>
+                                  <li>• To include spaces in a tag, use <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono">$%</kbd></li>
+                                  <li>• Example: Type <code className="px-1 py-0.5 bg-slate-100 rounded text-xs">example$%name</code> → creates tag "example name"</li>
+                                </ul>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
                         <TagInput
                           tags={inputTags}
                           setInputTags={setInputTags}
@@ -705,7 +730,7 @@ const LinksClient = () => {
                         <div className="flex gap-3">
                           <Button
                             type="button"
-                            className="w-full cursor-none pointer-events-none bg-gray-100 text-gray-700 hover:bg-gray-100"
+                            className="w-full cursor-none pointer-events-none bg-white text-foreground hover:bg-gray-100"
                           >
                             {shortcut
                               ? shortcut.toUpperCase()
@@ -749,7 +774,7 @@ const LinksClient = () => {
                         </div>
                       </div>
 
-                      <Button type="submit">Save Link</Button>
+                      <Button type="submit">Save link</Button>
                     </form>
                   </Form>
                 </DialogContent>
