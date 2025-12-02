@@ -2,122 +2,81 @@
 
 import GoogleIcon from "@/components/svgs/google-icon";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import React, { useCallback, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema } from "@/lib/zod-schemas";
-import { LoginForm } from "@/types";
+import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { LoaderCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 const LoginClient = () => {
   const [authLoading, setAuthLoading] = useState(false);
 
-  const loginForm = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    mode: "onSubmit",
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const { control, handleSubmit } = loginForm;
-
-  const onSubmit = useCallback((data: LoginForm) => {
-    console.log(data);
-  }, []);
-
   return (
-    <div className="border rounded-lg p-5 sm:p-10 space-y-8 w-[20rem] sm:w-[24rem] md:w-[26rem] bg-white">
-      <Button
-        type="button"
-        className="flex w-full items-center gap-3 bg-white hover:bg-slate-50 text-text border shadow-none"
-        disabled={authLoading}
-        onClick={async () => {
-          setAuthLoading(true);
+    <div className="w-full max-w-md">
+      {/* Card Container */}
+      <Card className="bg-white rounded-2xl p-8 sm:p-10 space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-foreground">
+            Welcome to Linkrem
+          </h1>
+          <p className="text-muted-foreground">
+            Sign in to continue to your account
+          </p>
+        </div>
 
-          try {
-            const authResult = await signIn("google", {
-              callbackUrl: "/links",
-              redirect: false,
-            });
-
-            if (authResult?.error) {
-              throw new Error("Authentication error:" + authResult.error);
-            } else if (authResult?.ok && authResult?.url) {
-              window.location.href = authResult?.url;
-            }
-          } catch (error) {
-            console.error(error);
-          } finally {
-            setAuthLoading(false);
-          }
-        }}
-      >
-        {authLoading ? (
-          <LoaderCircle className="animate-spin" />
-        ) : (
-          <>
-            <GoogleIcon className="h-6 w-6" />
-            Sign in with Google
-          </>
-        )}
-      </Button>
-
-      <div className="flex items-center justify-center w-full text-text-foreground gap-2">
-        <Separator className="shrink" />
-        or
-        <Separator className="shrink" />
-      </div>
-
-      <Form {...loginForm}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          <FormField
-            control={control}
-            name="email"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel>Email address</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="steve.paul@gmail.com" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={control}
-            name="password"
-            render={({ field }) => (
-              <FormItem className="space-y-1">
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="•••••••••••••" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="pt-3">
-            <Button className="w-full" type="submit">
-              Sign in
-            </Button>
+        {/* Divider with text */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
           </div>
-        </form>
-      </Form>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-white text-muted-foreground">
+              Continue with
+            </span>
+          </div>
+        </div>
+
+        {/* Google Sign In Button */}
+        <Button
+          type="button"
+          className="flex w-full items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300 shadow-sm h-12 rounded-xl font-medium transition-all duration-200"
+          disabled={authLoading}
+          onClick={async () => {
+            setAuthLoading(true);
+
+            try {
+              const authResult = await signIn("google", {
+                callbackUrl: "/links",
+                redirect: false,
+              });
+
+              if (authResult?.error) {
+                throw new Error("Authentication error:" + authResult.error);
+              } else if (authResult?.ok && authResult?.url) {
+                window.location.href = authResult?.url;
+              }
+            } catch (error) {
+              console.error(error);
+            } finally {
+              setAuthLoading(false);
+            }
+          }}
+        >
+          {authLoading ? (
+            <LoaderCircle className="animate-spin h-5 w-5" />
+          ) : (
+            <>
+              <GoogleIcon className="h-5 w-5" />
+              <span>Sign in with Google</span>
+            </>
+          )}
+        </Button>
+
+        {/* Footer Text */}
+        <p className="text-center text-xs text-gray-500 pt-4 px-10">
+          By continuing, you agree to our Terms of Service and Privacy Policy
+        </p>
+      </Card>
     </div>
   );
 };

@@ -64,6 +64,7 @@ const AppSidebar = () => {
     tagsData,
     tagOpeningLoading,
     setTagOpeningLoading,
+    setIsTagsFetching
   } = useAppStore();
 
   const pathname = usePathname();
@@ -76,6 +77,10 @@ const AppSidebar = () => {
   useEffect(() => {
     setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
   }, [setTagsData, tagQuery.data]);
+
+  useEffect(() => {
+    setIsTagsFetching(tagQuery.isLoading);
+  }, [setIsTagsFetching, tagQuery.isLoading]);
 
   const openLinks = useCallback((links: Array<string>) => {
     const tagLinksOpenMessage = {
@@ -151,7 +156,7 @@ const AppSidebar = () => {
                               className={cn(
                                 "cursor-pointer",
                                 (tagMutationLoading || tagOpeningLoading) &&
-                                  "cursor-not-allowed"
+                                "cursor-not-allowed"
                               )}
                               onClick={async () => {
                                 try {

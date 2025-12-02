@@ -13,6 +13,7 @@ interface GlobalSearch {
 interface AppState {
   linkData: AllLinksAPIResponse | undefined;
   tagsData: AllTagsAPIResponse | undefined;
+  isTagsFetching: boolean;
   sessionData: AllSessionsAPIResponse | undefined;
   globalSearch: GlobalSearch;
   tagMutationLoading: boolean;
@@ -20,6 +21,7 @@ interface AppState {
   headerHeight: number;
   setLinkData: (linkData: AllLinksAPIResponse | undefined) => void;
   setTagsData: (tagsData: AllTagsAPIResponse | undefined) => void;
+  setIsTagsFetching: (isTagsFetching: boolean) => void;
   setSessionData: (sessionData: AllSessionsAPIResponse | undefined) => void;
   setGlobalSearch: (globalSearchedObject: Partial<GlobalSearch>) => void;
   setTagMutationLoading: (loading: boolean) => void;
@@ -30,6 +32,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   linkData: undefined,
   tagsData: undefined,
+  isTagsFetching: false,
   sessionData: undefined,
   globalSearch: {
     searchText: "",
@@ -41,6 +44,7 @@ export const useAppStore = create<AppState>((set) => ({
   headerHeight: 0,
   setLinkData: (linkData) => set(() => ({ linkData })),
   setTagsData: (tagsData) => set(() => ({ tagsData })),
+  setIsTagsFetching: (isTagsFetching) => set(() => ({ isTagsFetching })),
   setSessionData: (sessionData) => set(() => ({ sessionData })),
   setGlobalSearch: (globalSearchedObject) =>
     set(({ globalSearch }) => ({

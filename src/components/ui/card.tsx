@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { boxShadowVariant1Style } from "@/constants";
 
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -8,7 +9,8 @@ const Card = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("rounded-xl border shadow", className)}
+    className={cn("rounded-xl border", className)}
+    style={boxShadowVariant1Style}
     {...props}
   />
 ));
@@ -32,7 +34,10 @@ const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("font-semibold leading-none tracking-tight text-2xl", className)}
+    className={cn(
+      "font-semibold leading-none tracking-tight text-2xl",
+      className,
+    )}
     {...props}
   />
 ));
