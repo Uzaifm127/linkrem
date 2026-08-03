@@ -347,6 +347,12 @@ const LinksClient = () => {
   }, [dialogOpen]);
 
   useEffect(() => {
+    if (filterDropdownOpen) {
+      tagSearchInputRef.current?.focus();
+    }
+  }, [filterDropdownOpen]);
+
+  useEffect(() => {
     useAppStore.setState((state) => {
       // For checking whether the search is for link or not
       if (state.globalSearch.type === "links") {
@@ -553,10 +559,6 @@ const LinksClient = () => {
           <DropdownMenuContent
             className="bg-slate-100 space-y-4 lg:w-96 md:w-80 sm:w-60 w-40"
             align="start"
-            onOpenAutoFocus={(e) => {
-              e.preventDefault();
-              tagSearchInputRef.current?.focus();
-            }}
           >
             <div className="p-4 pb-0">
               <Input

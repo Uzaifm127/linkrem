@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   BadgeCheck,
   // Bell,
@@ -52,11 +52,15 @@ import { useAppStore } from "@/store";
 import { tagQueryKey } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 const AppSidebar = () => {
   const { data } = useSession();
 
   const [clickedTag, setClickedTag] = useState("");
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     tagMutationLoading,
@@ -77,6 +81,12 @@ const AppSidebar = () => {
     setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
   }, [setTagsData, tagQuery.data]);
 
+  useEffect(() => {
+    if (tagDropdownOpen) {
+      tagSearchInputRef.current?.focus();
+    }
+  }, [tagDropdownOpen]);
+
   const openLinks = useCallback((links: Array<string>) => {
     const tagLinksOpenMessage = {
       action: "openLinks",
@@ -89,6 +99,11 @@ const AppSidebar = () => {
   const onLogout = useCallback(async () => {
     await signOut({ callbackUrl: "/auth/login" });
   }, []);
+
+  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const visibleTags = tagsData?.tags.filter((tag) =>
+    tag.tagName.toLowerCase().includes(normalizedTagSearch)
+  );
 
   return (
     <Sidebar variant="sidebar">
@@ -113,7 +128,16 @@ const AppSidebar = () => {
               return (
                 <SidebarMenuItem key={item.id}>
                   {item.items ? (
-                    <DropdownMenu>
+                    <DropdownMenu
+                      open={tagDropdownOpen}
+                      onOpenChange={(open) => {
+                        setTagDropdownOpen(open);
+
+                        if (!open) {
+                          setTagSearch("");
+                        }
+                      }}
+                    >
                       <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                           asChild
@@ -127,7 +151,9 @@ const AppSidebar = () => {
                           </div>
                         </SidebarMenuButton>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56 max-h-60 [scrollbar-width:none] overflow-y-scroll rounded-lg bg-white">
+                      <DropdownMenuContent
+                        className="w-[--radix-dropdown-menu-trigger-width] min-w-56 overflow-hidden rounded-lg bg-white"
+                      >
                         {/* Checking if length has a truthy value means other than 0 or have falsy value means 0 */}
                         {tagQuery.isLoading || !tagsData?.tags?.length ? (
                           <div className="min-h-40 flex items-center justify-center w-full text-xl font-medium">
@@ -145,36 +171,59 @@ const AppSidebar = () => {
                             )}
                           </div>
                         ) : (
-                          tagsData?.tags.map((tag) => (
-                            <DropdownMenuItem
-                              key={tag.id}
-                              className={cn(
-                                "cursor-pointer",
-                                (tagMutationLoading || tagOpeningLoading) &&
-                                  "cursor-not-allowed"
+                          <>
+                            <div className="p-2 pb-1">
+                              <Input
+                                ref={tagSearchInputRef}
+                                type="search"
+                                placeholder="Search tags"
+                                className="bg-white w-full"
+                                value={tagSearch}
+                                onChange={(e) => setTagSearch(e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="max-h-48 [scrollbar-width:none] overflow-y-scroll">
+                              {visibleTags?.map((tag) => (
+                                <DropdownMenuItem
+                                  key={tag.id}
+                                  className={cn(
+                                    "cursor-pointer",
+                                    (tagMutationLoading ||
+                                      tagOpeningLoading) &&
+                                      "cursor-not-allowed"
+                                  )}
+                                  onClick={async () => {
+                                    try {
+                                      const linksStringArray = tag.links.map(
+                                        (link) => link.url
+                                      );
+
+                                      setTagOpeningLoading(true);
+
+                                      openLinks(linksStringArray);
+                                    } catch (error) {
+                                      console.error(error);
+                                    } finally {
+                                      setClickedTag(tag.tagName);
+                                      setTagOpeningLoading(false);
+                                    }
+                                  }}
+                                  disabled={
+                                    tagMutationLoading || tagOpeningLoading
+                                  }
+                                >
+                                  <Tag className="h-6 w-6" />
+                                  {tag.tagName}
+                                </DropdownMenuItem>
+                              ))}
+                              {visibleTags?.length === 0 && (
+                                <p className="py-6 text-center text-sm text-muted-foreground">
+                                  No tags found.
+                                </p>
                               )}
-                              onClick={async () => {
-                                try {
-                                  const linksStringArray = tag.links.map(
-                                    (link) => link.url
-                                  );
-
-                                  setTagOpeningLoading(true);
-
-                                  openLinks(linksStringArray);
-                                } catch (error) {
-                                  console.error(error);
-                                } finally {
-                                  setClickedTag(tag.tagName);
-                                  setTagOpeningLoading(false);
-                                }
-                              }}
-                              disabled={tagMutationLoading || tagOpeningLoading}
-                            >
-                              <Tag className="h-6 w-6" />
-                              {tag.tagName}
-                            </DropdownMenuItem>
-                          ))
+                            </div>
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
