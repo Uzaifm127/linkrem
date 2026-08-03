@@ -69,23 +69,20 @@ type TabValueType = "links" | "sessions";
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [tabValue, setTabValue] = useState<TabValueType>("links");
   const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
   const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
   const [shortcutOpen, setShortcutOpen] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
   const [shortcut, setShortcut] = useState("");
+  const [tagSearch, setTagSearch] = useState("");
   const [filteredTags, setFilteredTags] = useState<
     Array<string> | Array<never>
   >([]);
   const [filterChips, setFilterChips] = useState<
     Array<never> | Array<{ name: string; filterApplied: boolean }>
   >([]);
-
-  // To reset the inner dialog tags on clear the search box
-  const filteredTagsRef = useRef<
-    Array<never> | Array<{ name: string; filterApplied: boolean }> | null
-  >(null);
 
   const { data: session } = useSession();
 
@@ -104,6 +101,7 @@ const LinksClient = () => {
   const { toast } = useToast();
 
   const listData = useRef<ReactNode | null>(null);
+  const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -338,7 +336,6 @@ const LinksClient = () => {
         filterApplied: false,
       }));
 
-      filteredTagsRef.current = tagsForFilter;
       setFilterChips(tagsForFilter);
     }
   }, [tagsData?.tags]);
@@ -515,13 +512,27 @@ const LinksClient = () => {
     );
   }
 
+  const normalizedTagSearch = tagSearch.trim().toLowerCase();
+  const visibleFilterChips = filterChips.filter((tag) =>
+    tag.name.toLowerCase().includes(normalizedTagSearch),
+  );
+
   return (
     <div>
       <div
         className="flex justify-between items-center p-4 sticky left-0 bg-background"
         style={{ top: `${headerHeight}px` }}
       >
-        <DropdownMenu>
+        <DropdownMenu
+          open={filterDropdownOpen}
+          onOpenChange={(open) => {
+            setFilterDropdownOpen(open);
+
+            if (!open) {
+              setTagSearch("");
+            }
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
@@ -542,24 +553,24 @@ const LinksClient = () => {
           <DropdownMenuContent
             className="bg-slate-100 space-y-4 lg:w-96 md:w-80 sm:w-60 w-40"
             align="start"
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              tagSearchInputRef.current?.focus();
+            }}
           >
-            {/* <div className="p-4 pb-0">
+            <div className="p-4 pb-0">
               <Input
+                ref={tagSearchInputRef}
                 type="search"
-                placeholder="Enter tag name"
+                placeholder="Search tags"
                 className="bg-white w-full"
-                onChange={(e) => {
-                  const searchText = e.target.value;
-
-                  if (searchText) {
-                  } else {
-                    setFilterChips(filteredTagsRef?.current);
-                  }
-                }}
-              />{" "}
-            </div> */}
+                value={tagSearch}
+                onChange={(e) => setTagSearch(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+            </div>
             <div className="max-h-64 p-4 overflow-y-scroll [scrollbar-width:none] flex flex-wrap gap-4">
-              {filterChips.map((tag) => {
+              {visibleFilterChips.map((tag) => {
                 return (
                   <Button
                     key={tag.name}
@@ -605,6 +616,11 @@ const LinksClient = () => {
                   </Button>
                 );
               })}
+              {visibleFilterChips.length === 0 && (
+                <p className="w-full py-4 text-center text-sm text-muted-foreground">
+                  No tags found.
+                </p>
+              )}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
