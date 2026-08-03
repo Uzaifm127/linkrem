@@ -63,6 +63,8 @@ import { useSession } from "next-auth/react";
 import { sessionDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { Session } from "@/components/session";
 import { cn } from "@/lib/utils";
+import ShortcutPicker from "@/components/shortcut-picker";
+import { matchesShortcut } from "@/lib/shortcut";
 
 type TabValueType = "links" | "sessions";
 
@@ -73,7 +75,6 @@ const LinksClient = () => {
   const [tabValue, setTabValue] = useState<TabValueType>("links");
   const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
   const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
-  const [shortcutOpen, setShortcutOpen] = useState(false);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
   const [shortcut, setShortcut] = useState("");
   const [tagSearch, setTagSearch] = useState("");
@@ -156,27 +157,38 @@ const LinksClient = () => {
         [linkQueryKey],
         (oldLinks: AllLinksAPIResponse | undefined) => {
           if (oldLinks) {
+            const linkId = uuid();
+            const now = new Date(new Date().toISOString());
             const tags = newLink.tags.map((tag) => ({
               id: uuid(),
               tagName: tag,
               locked: false,
               userId: session?.user.id || uuid(),
-              createdAt: new Date(new Date().toISOString()),
-              updatedAt: new Date(new Date().toISOString()),
+              createdAt: now,
+              updatedAt: now,
             }));
 
             return {
               links: [
                 ...oldLinks.links,
                 {
-                  id: uuid(),
+                  id: linkId,
                   name: newLink.name,
                   url: newLink.url,
                   tags: tags || [],
+                  shortcut: newLink.shortcut
+                    ? {
+                        id: uuid(),
+                        shortcutKey: newLink.shortcut,
+                        linkId,
+                        createdAt: now,
+                        updatedAt: now,
+                      }
+                    : null,
                   userId: session?.user.id || uuid(),
                   sessionLinksId: null,
-                  createdAt: new Date(new Date().toISOString()),
-                  updatedAt: new Date(new Date().toISOString()),
+                  createdAt: now,
+                  updatedAt: now,
                 },
               ],
             };
@@ -194,11 +206,11 @@ const LinksClient = () => {
       return { previousLinks, previousTags };
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError(_error, _newLink, context) {
+    onError(error, _newLink, context) {
       if (context) {
         toast({
-          title: "Something went wrong",
+          title:
+            error instanceof Error ? error.message : "Something went wrong",
           action: (
             <ToastAction
               altText="Try again"
@@ -284,33 +296,6 @@ const LinksClient = () => {
     },
   });
 
-  // For capturing the keyboard shortcuts
-  useEffect(() => {
-    const shortcutEventListener = (e: KeyboardEvent) => {
-      e.preventDefault();
-
-      const key = e.key;
-
-      if (shortcutOpen) {
-        if (e.ctrlKey) {
-          if (e.key !== "Control") {
-            setShortcut(`ctrl ${key}`);
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", shortcutEventListener);
-
-    if (!shortcutOpen) {
-      window.removeEventListener("keydown", shortcutEventListener);
-    }
-
-    return () => {
-      window.removeEventListener("keydown", shortcutEventListener);
-    };
-  }, [shortcutOpen, shortcut]);
-
   // Effect for changing the tab value
   useEffect(() => {
     if (tabValue === "links") {
@@ -347,9 +332,15 @@ const LinksClient = () => {
   }, [dialogOpen]);
 
   useEffect(() => {
-    if (filterDropdownOpen) {
-      tagSearchInputRef.current?.focus();
+    if (!filterDropdownOpen) {
+      return;
     }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      tagSearchInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(focusFrame);
   }, [filterDropdownOpen]);
 
   useEffect(() => {
@@ -406,6 +397,37 @@ const LinksClient = () => {
       }
     });
   }, [linkQuery.data, sessionQuery.data, globalSearch]);
+
+  useEffect(() => {
+    const shortcutEventListener = (e: KeyboardEvent) => {
+      const eventTarget = e.target as HTMLElement | null;
+
+      if (
+        eventTarget?.tagName === "INPUT" ||
+        eventTarget?.tagName === "TEXTAREA" ||
+        eventTarget?.isContentEditable
+      ) {
+        return;
+      }
+
+      const shortcutLink = linkQuery.data?.links.find(
+        (link: AllLinksAPIResponse["links"][number]) =>
+          link.shortcut?.shortcutKey &&
+          matchesShortcut(e, link.shortcut.shortcutKey)
+      );
+
+      if (!shortcutLink) {
+        return;
+      }
+
+      e.preventDefault();
+      window.open(shortcutLink.url, "_blank", "noopener,noreferrer");
+    };
+
+    window.addEventListener("keydown", shortcutEventListener);
+
+    return () => window.removeEventListener("keydown", shortcutEventListener);
+  }, [linkQuery.data?.links]);
 
   // This submit func will call only after the data of links have been fetched
   const onSubmit = useCallback(
@@ -471,6 +493,7 @@ const LinksClient = () => {
           name={link.name}
           tags={link.tags}
           url={link.url}
+          shortcut={link.shortcut?.shortcutKey ?? ""}
           filteredTags={filteredTags}
         />
       ))
@@ -719,52 +742,10 @@ const LinksClient = () => {
 
                       <div className="space-y-1">
                         <Label>Shortcut {"(optional)"}</Label>
-
-                        <div className="flex gap-3">
-                          <Button
-                            type="button"
-                            className="w-full cursor-none pointer-events-none bg-gray-100 text-gray-700 hover:bg-gray-100"
-                          >
-                            {shortcut
-                              ? shortcut.toUpperCase()
-                              : "Select the shortcut"}
-                          </Button>
-
-                          <Dialog
-                            open={shortcutOpen}
-                            onOpenChange={setShortcutOpen}
-                          >
-                            <DialogTrigger asChild className="block">
-                              <Button type="button" className="w-full">
-                                {shortcut ? "Edit" : "Add"} shortcut
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>
-                                  Type the shortcut here
-                                </DialogTitle>
-                              </DialogHeader>
-
-                              <div className="h-28 border-4 border-dotted gap-3 rounded-lg flex items-center justify-center">
-                                {shortcut ? (
-                                  shortcut.split(" ").map((key) => (
-                                    <div
-                                      key={key + Date.now()}
-                                      className="text-2xl text-gray-700 uppercase"
-                                    >
-                                      {key}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <h3 className="text-2xl text-muted-foreground">
-                                    Enter the shortcuts here
-                                  </h3>
-                                )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
+                        <ShortcutPicker
+                          value={shortcut}
+                          onChange={setShortcut}
+                        />
                       </div>
 
                       <Button type="submit">Save Link</Button>

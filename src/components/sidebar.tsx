@@ -82,10 +82,16 @@ const AppSidebar = () => {
   }, [setTagsData, tagQuery.data]);
 
   useEffect(() => {
-    if (tagDropdownOpen) {
-      tagSearchInputRef.current?.focus();
+    if (!tagDropdownOpen || !tagsData?.tags?.length) {
+      return;
     }
-  }, [tagDropdownOpen]);
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      tagSearchInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [tagDropdownOpen, tagsData?.tags]);
 
   const openLinks = useCallback((links: Array<string>) => {
     const tagLinksOpenMessage = {

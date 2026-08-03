@@ -22,6 +22,7 @@ export const GET = async (req: NextRequest) => {
 
       include: {
         tags: true,
+        shortcut: true,
       },
     });
 

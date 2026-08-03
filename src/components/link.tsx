@@ -58,8 +58,15 @@ import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import ShortcutPicker from "@/components/shortcut-picker";
 
-const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
+const Link: React.FC<LinkProps> = ({
+  name,
+  url,
+  tags,
+  filteredTags,
+  shortcut,
+}) => {
   // Extracting user preferences from cookies
   const dontShowDeletePopup = Cookies.get(linkDeletePopupCookieKey);
 
@@ -73,6 +80,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
   const [linkDeletePopupCheck, setLinkDeletePopupCheck] = useState(false);
+  const [shortcutValue, setShortcutValue] = useState(shortcut);
   const [inputTags, setInputTags] = useState<Tag[]>(() => {
     const tagsState = tags.map((tag) => ({ id: uuid(), text: tag.tagName }));
 
@@ -137,15 +145,23 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
 
             const updatedLinks = oldLinks.links.map((link) => {
               if (link.name === name) {
+                const now = new Date(new Date().toISOString());
+
                 return {
-                  id: uuid(),
+                  ...link,
                   name: newLink.name,
                   url: newLink.url,
                   tags: tags || [],
-                  userId: session?.user.id || uuid(),
-                  sessionLinksId: null,
-                  createdAt: new Date(new Date().toISOString()),
-                  updatedAt: new Date(new Date().toISOString()),
+                  shortcut: newLink.shortcut
+                    ? {
+                        id: link.shortcut?.id ?? uuid(),
+                        shortcutKey: newLink.shortcut,
+                        linkId: link.id,
+                        createdAt: link.shortcut?.createdAt ?? now,
+                        updatedAt: now,
+                      }
+                    : null,
+                  updatedAt: now,
                 };
               } else {
                 return link;
@@ -164,10 +180,11 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
       return { previousLinks, previousTags };
     },
 
-    onError(_error, _newLink, context) {
+    onError(error, _newLink, context) {
       if (context) {
         toast({
-          title: "Something went wrong",
+          title:
+            error instanceof Error ? error.message : "Something went wrong",
           action: (
             <ToastAction
               altText="Try again"
@@ -278,8 +295,9 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
       const oldTags = tags.map((tag) => tag.tagName.trim());
 
       const tagChange = JSON.stringify(oldTags) !== JSON.stringify(currentTags);
+      const shortcutChange = shortcut !== shortcutValue;
 
-      if (nameChange || URLChange || tagChange) {
+      if (nameChange || URLChange || tagChange || shortcutChange) {
         // Checking duplication link name and url is remaining on server and on the client side we have to check whether the data filled is already existed or not among all links.
 
         const tags = tagParser(inputTags);
@@ -290,6 +308,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
           nameChange,
           URLChange,
           tagChange,
+          shortcut: shortcutValue,
         };
 
         updateMutation.mutate(updatedLink);
@@ -297,7 +316,7 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
         setEditDialogOpen(false);
       }
     },
-    [updateMutation, name, tags, url, inputTags]
+    [updateMutation, name, tags, url, inputTags, shortcut, shortcutValue]
   );
 
   return (
@@ -318,7 +337,14 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
             <div className="flex gap-1 items-center">
               <Edit
                 className="h-7 w-7 rounded-sm transition cursor-pointer text-text-foreground hover:bg-slate-100 p-1"
-                onClick={() => setEditDialogOpen(true)}
+                onClick={() => {
+                  updateLinkForm.reset({ name, url });
+                  setInputTags(
+                    tags.map((tag) => ({ id: uuid(), text: tag.tagName }))
+                  );
+                  setShortcutValue(shortcut);
+                  setEditDialogOpen(true);
+                }}
               />
               <Trash2
                 className="h-7 w-7 rounded-sm transition text-red-600 cursor-pointer hover:bg-red-200 p-1"
@@ -373,6 +399,14 @@ const Link: React.FC<LinkProps> = ({ name, url, tags, filteredTags }) => {
                     <div className="space-y-1">
                       <Label>Tags {"(optional)"}</Label>
                       <TagInput tags={inputTags} setInputTags={setInputTags} />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label>Shortcut {"(optional)"}</Label>
+                      <ShortcutPicker
+                        value={shortcutValue}
+                        onChange={setShortcutValue}
+                      />
                     </div>
 
                     <Button type="submit">Save Link</Button>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
+import { validateShortcut } from "@/lib/shortcut";
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -13,6 +14,28 @@ export const POST = async (req: NextRequest) => {
     }
 
     const isTagsExist = tags.length > 0;
+    const shortcutValidation = validateShortcut(shortcut ?? "", {
+      optional: true,
+    });
+
+    if (!shortcutValidation.valid) {
+      throw new Error(shortcutValidation.message);
+    }
+
+    const normalizedShortcut = shortcutValidation.shortcut;
+
+    if (normalizedShortcut) {
+      const shortcutExists = await prisma.shortcut.findFirst({
+        where: {
+          shortcutKey: normalizedShortcut,
+          link: { is: { userId: token!.id } },
+        },
+      });
+
+      if (shortcutExists) {
+        throw new Error("This shortcut is already assigned to another link.");
+      }
+    }
 
     // Only create link for the same user if it doesn't exist
     await prisma.link.create({
@@ -36,11 +59,13 @@ export const POST = async (req: NextRequest) => {
         user: {
           connect: { id: token!.id },
         },
-        shortcut: {
-          create: {
-            shortcutKey: shortcut,
+        ...(normalizedShortcut && {
+          shortcut: {
+            create: {
+              shortcutKey: normalizedShortcut,
+            },
           },
-        },
+        }),
       },
     });
 
@@ -64,6 +89,7 @@ export const PUT = async (req: NextRequest) => {
       URLChange,
       nameChange,
       tagChange,
+      shortcut,
     }: UpdateLinkRequest = await req.json();
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
@@ -72,6 +98,57 @@ export const PUT = async (req: NextRequest) => {
     }
 
     const isTagsExist = tags.length > 0;
+    const shortcutValidation = validateShortcut(shortcut ?? "", {
+      optional: true,
+    });
+
+    if (!shortcutValidation.valid) {
+      throw new Error(shortcutValidation.message);
+    }
+
+    const currentLink = await prisma.link.findUnique({
+      where: {
+        name_userId: {
+          userId: token!.id,
+          name: currentLinkName,
+        },
+      },
+      include: { shortcut: true, tags: true },
+    });
+
+    if (!currentLink) {
+      throw new Error("Link not found");
+    }
+
+    const normalizedShortcut =
+      shortcut === undefined
+        ? currentLink.shortcut?.shortcutKey ?? ""
+        : shortcutValidation.shortcut;
+
+    if (normalizedShortcut) {
+      const shortcutExists = await prisma.shortcut.findFirst({
+        where: {
+          shortcutKey: normalizedShortcut,
+          linkId: { not: currentLink.id },
+          link: { is: { userId: token!.id } },
+        },
+      });
+
+      if (shortcutExists) {
+        throw new Error("This shortcut is already assigned to another link.");
+      }
+    }
+
+    const shortcutChange =
+      currentLink.shortcut?.shortcutKey !== normalizedShortcut ||
+      (!!currentLink.shortcut && !normalizedShortcut);
+    const shortcutUpdate = shortcutChange
+      ? normalizedShortcut
+        ? currentLink.shortcut
+          ? { shortcut: { update: { shortcutKey: normalizedShortcut } } }
+          : { shortcut: { create: { shortcutKey: normalizedShortcut } } }
+        : { shortcut: { delete: true } }
+      : {};
 
     let tagsToRemove: Array<never> | Array<string> = [];
 
@@ -86,17 +163,7 @@ export const PUT = async (req: NextRequest) => {
         // Case:- where user adds some tags on a link
 
         // Finding the current tags from a database associated with the given link
-        currentTags = (
-          await prisma.link.findUnique({
-            where: {
-              name_userId: {
-                userId: token!.id,
-                name: currentLinkName,
-              },
-            },
-            include: { tags: true },
-          })
-        )?.tags.map((tag) => tag.tagName) as Array<string> | Array<never>;
+        currentTags = currentLink.tags.map((tag) => tag.tagName);
 
         // For adding new tags
         currentTagsSet = new Set(currentTags);
@@ -123,6 +190,7 @@ export const PUT = async (req: NextRequest) => {
         data: {
           ...(nameChange && { name }),
           ...(URLChange && { url }),
+          ...shortcutUpdate,
           ...(tagChange && {
             tags: {
               ...(tagsToAdd.length > 0 && {
@@ -162,6 +230,7 @@ export const PUT = async (req: NextRequest) => {
         data: {
           ...(nameChange && { name }),
           ...(URLChange && { url }),
+          ...shortcutUpdate,
           ...(tagChange && {
             tags: {
               set: [],
