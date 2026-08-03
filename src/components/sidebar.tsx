@@ -49,7 +49,7 @@ import { fetcher } from "@/lib/fetcher";
 import { AllTagsAPIResponse } from "@/types/server/response";
 import AppIcon from "@/components/ui/app-icon";
 import { useAppStore } from "@/store";
-import { tagQueryKey } from "@/constants/query-keys";
+import { getTagQueryKey } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -71,14 +71,16 @@ const AppSidebar = () => {
   } = useAppStore();
 
   const pathname = usePathname();
+  const userId = data?.user.id;
 
-  const tagQuery = useQuery({
-    queryKey: [tagQueryKey],
+  const tagQuery = useQuery<AllTagsAPIResponse>({
+    queryKey: getTagQueryKey(userId),
     queryFn: async () => await fetcher("/api/tags"),
+    enabled: Boolean(userId),
   });
 
   useEffect(() => {
-    setTagsData(tagQuery.data as AllTagsAPIResponse | undefined);
+    setTagsData(tagQuery.data);
   }, [setTagsData, tagQuery.data]);
 
   useEffect(() => {

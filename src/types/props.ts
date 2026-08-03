@@ -22,6 +22,7 @@ export interface SVGProps {
 export interface TagProps {
   tags: Array<Tag>;
   setInputTags: Dispatch<SetStateAction<Tag[]>>;
+  availableTags?: Array<Tag>;
 }
 
 export interface SessionProps {

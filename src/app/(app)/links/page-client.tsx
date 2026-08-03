@@ -50,9 +50,9 @@ import { ToastAction } from "@/components/ui/toast";
 import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
 import {
+  getTagQueryKey,
   linkQueryKey,
   sessionQueryKey,
-  tagQueryKey,
 } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { TagInput } from "@/components/ui/tag-input";
@@ -105,6 +105,7 @@ const LinksClient = () => {
   const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const queryClient = useQueryClient();
+  const currentTagQueryKey = getTagQueryKey(session?.user.id);
 
   // Querying for links
   const linkQuery = useQuery({
@@ -143,14 +144,14 @@ const LinksClient = () => {
       // Cancel outgoing refetches
       await Promise.all([
         queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
+        queryClient.cancelQueries({ queryKey: currentTagQueryKey }),
       ]);
 
       // Getting the previous links
       const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([tagQueryKey]);
+      const previousTags = queryClient.getQueryData(currentTagQueryKey);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
@@ -223,7 +224,7 @@ const LinksClient = () => {
         });
 
         queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
+        queryClient.setQueryData(currentTagQueryKey, context.previousTags);
       }
     },
 
@@ -232,7 +233,7 @@ const LinksClient = () => {
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+        await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
       }
       setTagMutationLoading(false);
     },
@@ -737,11 +738,15 @@ const LinksClient = () => {
                         <TagInput
                           tags={inputTags}
                           setInputTags={setInputTags}
+                          availableTags={tagsData?.tags.map((tag) => ({
+                            id: tag.id,
+                            text: tag.tagName,
+                          }))}
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <Label>Shortcut {"(optional)"}</Label>
+                        <Label>Shortcut</Label>
                         <ShortcutPicker
                           value={shortcut}
                           onChange={setShortcut}

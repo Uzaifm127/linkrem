@@ -52,7 +52,7 @@ import { v4 as uuid } from "uuid";
 import { useAppStore } from "@/store";
 import Cookies from "js-cookie";
 import { linkDeletePopupCookieKey } from "@/constants/cookie-keys";
-import { linkQueryKey, tagQueryKey } from "@/constants/query-keys";
+import { getTagQueryKey, linkQueryKey } from "@/constants/query-keys";
 import { Tag } from "emblor";
 import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
@@ -89,11 +89,12 @@ const Link: React.FC<LinkProps> = ({
 
   const { data: session } = useSession();
 
-  const { setTagMutationLoading } = useAppStore();
+  const { setTagMutationLoading, tagsData } = useAppStore();
 
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
+  const currentTagQueryKey = getTagQueryKey(session?.user.id);
 
   const updateLinkForm = useForm<LinkForm>({
     resolver: zodResolver(linkSchema),
@@ -120,14 +121,14 @@ const Link: React.FC<LinkProps> = ({
       // Cancel outgoing refetches
       await Promise.all([
         queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
+        queryClient.cancelQueries({ queryKey: currentTagQueryKey }),
       ]);
 
       // Getting the previous links
       const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([linkQueryKey]);
+      const previousTags = queryClient.getQueryData(currentTagQueryKey);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
@@ -197,7 +198,7 @@ const Link: React.FC<LinkProps> = ({
         });
 
         queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
+        queryClient.setQueryData(currentTagQueryKey, context.previousTags);
       }
     },
 
@@ -206,7 +207,7 @@ const Link: React.FC<LinkProps> = ({
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+        await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
       }
       setTagMutationLoading(false);
     },
@@ -225,14 +226,14 @@ const Link: React.FC<LinkProps> = ({
       // Cancel outgoing refetches
       await Promise.all([
         queryClient.cancelQueries({ queryKey: [linkQueryKey] }),
-        queryClient.cancelQueries({ queryKey: [tagQueryKey] }),
+        queryClient.cancelQueries({ queryKey: currentTagQueryKey }),
       ]);
 
       // Getting the previous links
       const previousLinks = queryClient.getQueryData([linkQueryKey]);
 
       // Getting the previous tags associated with that link
-      const previousTags = queryClient.getQueryData([tagQueryKey]);
+      const previousTags = queryClient.getQueryData(currentTagQueryKey);
 
       // Optimistically updating the query data
       queryClient.setQueryData(
@@ -268,7 +269,7 @@ const Link: React.FC<LinkProps> = ({
         });
 
         queryClient.setQueryData([linkQueryKey], context.previousLinks);
-        queryClient.setQueryData([tagQueryKey], context.previousTags);
+        queryClient.setQueryData(currentTagQueryKey, context.previousTags);
       }
     },
 
@@ -277,7 +278,7 @@ const Link: React.FC<LinkProps> = ({
 
       // Only invalidating when there is no error.
       if (!error) {
-        await queryClient.invalidateQueries({ queryKey: [tagQueryKey] });
+        await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
       }
       setTagMutationLoading(false);
     },
@@ -398,11 +399,18 @@ const Link: React.FC<LinkProps> = ({
 
                     <div className="space-y-1">
                       <Label>Tags {"(optional)"}</Label>
-                      <TagInput tags={inputTags} setInputTags={setInputTags} />
+                      <TagInput
+                        tags={inputTags}
+                        setInputTags={setInputTags}
+                        availableTags={tagsData?.tags.map((tag) => ({
+                          id: tag.id,
+                          text: tag.tagName,
+                        }))}
+                      />
                     </div>
 
                     <div className="space-y-1">
-                      <Label>Shortcut {"(optional)"}</Label>
+                      <Label>Shortcut</Label>
                       <ShortcutPicker
                         value={shortcutValue}
                         onChange={setShortcutValue}
