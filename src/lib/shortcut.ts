@@ -7,6 +7,8 @@ export const shortcutKeyRows = [
 
 export const shortcutModifiers = ["ctrl", "alt", "shift", "meta"] as const;
 
+export const maxLinkShortcuts = 10;
+
 export type ShortcutModifier = (typeof shortcutModifiers)[number];
 
 interface ShortcutValidationResult {
@@ -106,6 +108,21 @@ export const validateShortcut = (
       message: `${formatShortcut(
         [...modifiers, key].join(" ")
       )} is already used by Linkrem.`,
+      shortcut: "",
+    };
+  }
+
+  const usesExtensionSaveShortcut =
+    modifiers.includes("shift") &&
+    modifiers.some((modifier) => modifier === "ctrl" || modifier === "meta") &&
+    (key === "l" || key === "s");
+
+  if (usesExtensionSaveShortcut) {
+    return {
+      valid: false,
+      message: `${formatShortcut(
+        [...modifiers, key].join(" "),
+      )} is used to save from the Linkrem extension.`,
       shortcut: "",
     };
   }

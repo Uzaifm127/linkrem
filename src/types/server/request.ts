@@ -16,4 +16,14 @@ export interface CreateSessionLinkRequest {
   sessionLinks: Array<{ name: string; url: string }>;
 }
 
+export interface DeleteSessionRequest {
+  sessionId?: string;
+  currentSessionName?: string;
+}
+
+export interface DeleteSessionLinkRequest {
+  sessionId: string;
+  sessionLinkId: string;
+}
+
 export type HttpMethods = "GET" | "POST" | "PUT" | "DELETE";

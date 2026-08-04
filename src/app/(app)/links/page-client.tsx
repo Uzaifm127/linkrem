@@ -15,6 +15,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -33,12 +34,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Cookies from "js-cookie";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { LinkData, LinkForm } from "@/types";
+import { LinkData, LinkForm, SessionForm } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { linkSchema } from "@/lib/zod-schemas";
+import { linkSchema, sessionSchema } from "@/lib/zod-schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import {
@@ -60,27 +60,28 @@ import { Tag } from "emblor";
 import { tagParser } from "@/lib/functions";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
-import { sessionDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { Session } from "@/components/session";
 import { cn } from "@/lib/utils";
 import ShortcutPicker from "@/components/shortcut-picker";
-import { matchesShortcut } from "@/lib/shortcut";
+import { matchesShortcut, maxLinkShortcuts } from "@/lib/shortcut";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type TabValueType = "links" | "sessions";
 
 const LinksClient = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [tabValue, setTabValue] = useState<TabValueType>("links");
-  const [sessionDeleteDialogOpen, setSessionDeleteDialogOpen] = useState(false);
-  const [sessionDeletePopupCheck, setSessionDeletePopupCheck] = useState(false);
+  const [selectedSessionLinkIds, setSelectedSessionLinkIds] = useState<
+    Array<string>
+  >([]);
   const [inputTags, setInputTags] = useState<Tag[]>([]);
   const [shortcut, setShortcut] = useState("");
   const [tagSearch, setTagSearch] = useState("");
-  const [filteredTags, setFilteredTags] = useState<
-    Array<string> | Array<never>
-  >([]);
+  const [filteredTags, setFilteredTags] = useState<string[]>([]);
   const [filterChips, setFilterChips] = useState<
     Array<never> | Array<{ name: string; filterApplied: boolean }>
   >([]);
@@ -108,7 +109,7 @@ const LinksClient = () => {
   const currentTagQueryKey = getTagQueryKey(session?.user.id);
 
   // Querying for links
-  const linkQuery = useQuery({
+  const linkQuery = useQuery<AllLinksAPIResponse>({
     queryKey: [linkQueryKey],
     queryFn: async () => await fetcher("/api/link/my-links"),
     enabled: tabValue === "links",
@@ -116,7 +117,7 @@ const LinksClient = () => {
   });
 
   // Querying for sessions
-  const sessionQuery = useQuery({
+  const sessionQuery = useQuery<AllSessionsAPIResponse>({
     queryKey: [sessionQueryKey],
     queryFn: async () => await fetcher("/api/session/my-sessions"),
     enabled: tabValue === "sessions",
@@ -132,6 +133,15 @@ const LinksClient = () => {
   });
 
   const { control, handleSubmit } = linkForm;
+
+  const sessionForm = useForm<SessionForm>({
+    resolver: zodResolver(sessionSchema),
+    mode: "onSubmit",
+    defaultValues: {
+      name: "",
+      sessionLinks: [],
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async (linkDataObject: LinkData) =>
@@ -234,18 +244,38 @@ const LinksClient = () => {
       // Only invalidating when there is no error.
       if (!error) {
         await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
+        window.postMessage({ action: "shortcutsChanged" }, "*");
       }
       setTagMutationLoading(false);
     },
   });
 
-  const sessionDeleteMutation = useMutation({
-    mutationFn: async (currentSessionName: string) =>
-      await fetcher("/api/session", "DELETE", { currentSessionName } as {
-        currentSessionName: string;
-      }),
+  const sessionCreateMutation = useMutation({
+    mutationFn: async (newSession: SessionForm) =>
+      await fetcher("/api/session", "POST", newSession),
 
-    async onMutate(currentSessionName) {
+    onSuccess: async () => {
+      setSessionDialogOpen(false);
+      setAddDropdownOpen(false);
+      setSelectedSessionLinkIds([]);
+      sessionForm.reset();
+      setTabValue("sessions");
+      await queryClient.invalidateQueries({ queryKey: [sessionQueryKey] });
+    },
+
+    onError(error) {
+      toast({
+        title: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sessionDeleteMutation = useMutation({
+    mutationFn: async (sessionId: string) =>
+      await fetcher("/api/session", "DELETE", { sessionId }),
+
+    async onMutate(sessionId) {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: [sessionQueryKey] });
 
@@ -258,21 +288,13 @@ const LinksClient = () => {
         (oldSessions: AllSessionsAPIResponse | undefined) => {
           if (oldSessions) {
             const updatedSessions = oldSessions.sessions.filter(
-              (session) => session.name !== currentSessionName,
+              (session) => session.id !== sessionId,
             );
 
             return { sessions: updatedSessions };
           }
         },
       );
-
-      setSessionDeleteDialogOpen(false);
-
-      // Setting up the user preference, If any
-      if (sessionDeletePopupCheck) {
-        // Expires after session over
-        Cookies.set(sessionDeletePopupCookieKey, "yes");
-      }
 
       // Return the context with previous value
       return { previousSessions };
@@ -291,6 +313,66 @@ const LinksClient = () => {
 
     async onSettled(_data, error) {
       // Only invalidating when there is no error.
+      if (!error) {
+        await queryClient.invalidateQueries({ queryKey: [sessionQueryKey] });
+      }
+    },
+  });
+
+  const sessionLinkDeleteMutation = useMutation({
+    mutationFn: async ({
+      sessionId,
+      sessionLinkId,
+    }: {
+      sessionId: string;
+      sessionLinkId: string;
+    }) =>
+      await fetcher("/api/session/link", "DELETE", {
+        sessionId,
+        sessionLinkId,
+      }),
+
+    async onMutate({ sessionId, sessionLinkId }) {
+      await queryClient.cancelQueries({ queryKey: [sessionQueryKey] });
+      const previousSessions = queryClient.getQueryData([sessionQueryKey]);
+
+      queryClient.setQueryData(
+        [sessionQueryKey],
+        (oldSessions: AllSessionsAPIResponse | undefined) => {
+          if (!oldSessions) {
+            return oldSessions;
+          }
+
+          return {
+            sessions: oldSessions.sessions.map((currentSession) =>
+              currentSession.id === sessionId
+                ? {
+                    ...currentSession,
+                    sessionLinks: currentSession.sessionLinks.filter(
+                      (sessionLink) => sessionLink.id !== sessionLinkId,
+                    ),
+                  }
+                : currentSession,
+            ),
+          };
+        },
+      );
+
+      return { previousSessions };
+    },
+
+    onError(error, _variables, context) {
+      toast({
+        title: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+
+      if (context) {
+        queryClient.setQueryData([sessionQueryKey], context.previousSessions);
+      }
+    },
+
+    async onSettled(_data, error) {
       if (!error) {
         await queryClient.invalidateQueries({ queryKey: [sessionQueryKey] });
       }
@@ -331,6 +413,17 @@ const LinksClient = () => {
       setShortcut("");
     }
   }, [dialogOpen]);
+
+  useEffect(() => {
+    const selectedLinks =
+      linkQuery.data?.links
+        .filter((link) => selectedSessionLinkIds.includes(link.id))
+        .map((link) => ({ name: link.name, url: link.url })) ?? [];
+
+    sessionForm.setValue("sessionLinks", selectedLinks, {
+      shouldValidate: sessionForm.formState.isSubmitted,
+    });
+  }, [linkQuery.data?.links, selectedSessionLinkIds, sessionForm]);
 
   useEffect(() => {
     if (!filterDropdownOpen) {
@@ -473,6 +566,42 @@ const LinksClient = () => {
     [mutation, linkData, linkForm, toast, inputTags, shortcut],
   );
 
+  const onSessionSubmit = useCallback(
+    (sessionFormData: SessionForm) => {
+      const selectedLinks = linkQuery.data?.links.filter((link) =>
+        selectedSessionLinkIds.includes(link.id),
+      );
+
+      if (!selectedLinks?.length) {
+        sessionForm.setError("sessionLinks", {
+          message: "Select at least one link",
+        });
+        return;
+      }
+
+      sessionCreateMutation.mutate({
+        name: sessionFormData.name,
+        sessionLinks: selectedLinks.map((link) => ({
+          name: link.name,
+          url: link.url,
+        })),
+      });
+    },
+    [
+      linkQuery.data?.links,
+      selectedSessionLinkIds,
+      sessionCreateMutation,
+      sessionForm,
+    ],
+  );
+
+  const openAllSessionLinks = useCallback((links: Array<string>) => {
+    window.postMessage(
+      { action: "openLinks", linksToOpen: links },
+      "*",
+    );
+  }, []);
+
   const lottieLoader = (
     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
       <DotLottieReact
@@ -516,17 +645,17 @@ const LinksClient = () => {
       sessionData?.sessions.map((session) => (
         <Session
           key={session.id}
+          id={session.id}
           name={session.name}
           sessionLinks={session.sessionLinks}
           createdAt={session.createdAt}
-          setSessionDeletePopupCheck={setSessionDeletePopupCheck}
-          sessionDeletePopupCheck={sessionDeletePopupCheck}
-          setSessionDeleteDialogOpen={setSessionDeleteDialogOpen}
-          sessionDeleteDialogOpen={sessionDeleteDialogOpen}
-          onDeleteSession={(sessionName) =>
-            sessionDeleteMutation.mutate(sessionName)
+          onDeleteSession={(sessionId) =>
+            sessionDeleteMutation.mutate(sessionId)
           }
-          onSessionLinkDelete={() => {}}
+          onSessionLinkDelete={(sessionId, sessionLinkId) =>
+            sessionLinkDeleteMutation.mutate({ sessionId, sessionLinkId })
+          }
+          onOpenAllLinks={openAllSessionLinks}
         />
       ))
     ) : (
@@ -536,16 +665,24 @@ const LinksClient = () => {
         </div>
         <h3 className="text-lg font-semibold mb-1">No Sessions Found</h3>
         <p className="text-sm text-muted-foreground">
-          Create a session from extension.
+          Create a session to open a group of links together.
         </p>
       </div>
     );
   }
 
   const normalizedTagSearch = tagSearch.trim().toLowerCase();
-  const visibleFilterChips = filterChips.filter((tag) =>
-    tag.name.toLowerCase().includes(normalizedTagSearch),
-  );
+  const activeFilterTags = new Set(filteredTags);
+  const visibleFilterChips = filterChips
+    .filter((tag) => tag.name.toLowerCase().includes(normalizedTagSearch))
+    .map((tag) => ({
+      ...tag,
+      filterApplied: activeFilterTags.has(tag.name),
+    }))
+    .sort(
+      (firstTag, secondTag) =>
+        Number(secondTag.filterApplied) - Number(firstTag.filterApplied),
+    );
 
   return (
     <div>
@@ -607,34 +744,13 @@ const LinksClient = () => {
                         : "bg-white hover:bg-slate-100 text-text",
                     )}
                     onClick={() => {
-                      setFilterChips((prev) => {
-                        const newFilteredChips = prev.map(
-                          (innerTagInstance) => {
-                            if (innerTagInstance.name === tag.name) {
-                              return {
-                                ...innerTagInstance,
-                                filterApplied: tag.filterApplied ? false : true,
-                              };
-                            } else {
-                              return {
-                                ...innerTagInstance,
-                              };
-                            }
-                          },
-                        );
-
-                        return newFilteredChips;
-                      });
-
-                      if (tag.filterApplied) {
-                        setFilteredTags((prev) => {
-                          return prev.filter(
-                            (filteredTag) => filteredTag !== tag.name,
-                          );
-                        });
-                      } else {
-                        setFilteredTags((prev) => [...prev, tag.name]);
-                      }
+                      setFilteredTags((currentTags) =>
+                        currentTags.includes(tag.name)
+                          ? currentTags.filter(
+                              (filteredTag) => filteredTag !== tag.name,
+                            )
+                          : [...currentTags, tag.name],
+                      );
                     }}
                   >
                     {tag.name}
@@ -747,10 +863,16 @@ const LinksClient = () => {
 
                       <div className="space-y-1">
                         <Label>Shortcut</Label>
-                        <ShortcutPicker
-                          value={shortcut}
-                          onChange={setShortcut}
-                        />
+                      <ShortcutPicker
+                        value={shortcut}
+                        onChange={setShortcut}
+                        disabled={
+                          !shortcut &&
+                          (linkQuery.data?.links.filter(
+                            (link) => link.shortcut?.shortcutKey,
+                          ).length ?? 0) >= maxLinkShortcuts
+                        }
+                      />
                       </div>
 
                       <Button type="submit">Save Link</Button>
@@ -759,12 +881,131 @@ const LinksClient = () => {
                 </DialogContent>
               </Dialog>
 
-              {/* For Saving sessions */}
-              <DropdownMenuItem disabled>Add session</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setAddDropdownOpen(false);
+                  setSessionDialogOpen(true);
+                }}
+              >
+                Add session
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog
+        open={sessionDialogOpen}
+        onOpenChange={(open) => {
+          setSessionDialogOpen(open);
+
+          if (!open) {
+            setSelectedSessionLinkIds([]);
+            sessionForm.reset();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Session</DialogTitle>
+            <DialogDescription>
+              Name the session and choose the links you want to open together.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...sessionForm}>
+            <form
+              onSubmit={sessionForm.handleSubmit(onSessionSubmit)}
+              className="space-y-3"
+            >
+              <FormField
+                control={sessionForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Session name" autoFocus />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-1">
+                <Label>Links</Label>
+                <ScrollArea className="h-64 w-full rounded-md border p-2">
+                  {linkQuery.data?.links.length ? (
+                    linkQuery.data.links.map((link) => {
+                      const checkboxId = `session-link-${link.id}`;
+                      const isSelected = selectedSessionLinkIds.includes(
+                        link.id,
+                      );
+
+                      return (
+                        <label
+                          key={link.id}
+                          htmlFor={checkboxId}
+                          className={cn(
+                            "flex cursor-pointer items-start gap-3 rounded-md p-3 hover:bg-accent",
+                            isSelected && "bg-accent",
+                          )}
+                        >
+                          <Checkbox
+                            id={checkboxId}
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedSessionLinkIds((currentIds) =>
+                                checked === true
+                                  ? Array.from(
+                                      new Set([...currentIds, link.id]),
+                                    )
+                                  : currentIds.filter(
+                                      (currentId) => currentId !== link.id,
+                                    ),
+                              );
+                            }}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium">
+                              {link.name}
+                            </span>
+                            <span className="block truncate text-sm text-muted-foreground">
+                              {link.url}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      Add a link before creating a session.
+                    </p>
+                  )}
+                </ScrollArea>
+                {sessionForm.formState.errors.sessionLinks?.message && (
+                  <p className="text-sm font-medium text-destructive">
+                    {sessionForm.formState.errors.sessionLinks.message}
+                  </p>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={
+                    sessionCreateMutation.isLoading ||
+                    !linkQuery.data?.links.length
+                  }
+                >
+                  Save Session
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
         {listData.current}

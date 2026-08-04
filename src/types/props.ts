@@ -26,13 +26,11 @@ export interface TagProps {
 }
 
 export interface SessionProps {
+  id: string;
   name: string;
   sessionLinks: Array<SessionLinks>;
   createdAt: Date;
-  sessionDeletePopupCheck: boolean;
-  setSessionDeletePopupCheck: React.Dispatch<React.SetStateAction<boolean>>;
-  sessionDeleteDialogOpen: boolean;
-  setSessionDeleteDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  onDeleteSession: (sessionName: string) => void;
-  onSessionLinkDelete: (linkName: string) => void;
+  onDeleteSession: (sessionId: string) => void;
+  onSessionLinkDelete: (sessionId: string, sessionLinkId: string) => void;
+  onOpenAllLinks: (links: Array<string>) => void;
 }

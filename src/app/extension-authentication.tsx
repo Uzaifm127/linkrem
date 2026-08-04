@@ -7,12 +7,16 @@ import React, { ReactNode, useEffect } from "react";
 const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const { setTagOpeningLoading } = useAppStore();
 
   useEffect(() => {
-    if (session) {
+    if (status === "loading") {
+      return;
+    }
+
+    if (status === "authenticated" && session) {
       (async () => {
         try {
           const response = await fetch("/api/token", {
@@ -30,20 +34,16 @@ const ExtensionAuthentication: React.FC<{ children: ReactNode }> = ({
             "*"
           );
         } catch (error) {
-          console.log(error);
-          window.postMessage(
-            { action: "onSignIn", token: null, authenticated: false },
-            "*"
-          );
+          console.error("Failed to refresh the extension token", error);
         }
       })();
-    } else {
+    } else if (status === "unauthenticated") {
       window.postMessage(
         { action: "onSignIn", token: null, authenticated: false },
         "*"
       );
     }
-  }, [session]);
+  }, [session, status]);
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

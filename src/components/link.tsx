@@ -59,6 +59,7 @@ import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import ShortcutPicker from "@/components/shortcut-picker";
+import { maxLinkShortcuts } from "@/lib/shortcut";
 
 const Link: React.FC<LinkProps> = ({
   name,
@@ -94,6 +95,13 @@ const Link: React.FC<LinkProps> = ({
   const { toast } = useToast();
 
   const queryClient = useQueryClient();
+  const allLinks = queryClient.getQueryData<AllLinksAPIResponse>([
+    linkQueryKey,
+  ]);
+  const shortcutLimitReached =
+    !shortcut &&
+    (allLinks?.links.filter((link) => link.shortcut?.shortcutKey).length ?? 0) >=
+      maxLinkShortcuts;
   const currentTagQueryKey = getTagQueryKey(session?.user.id);
 
   const updateLinkForm = useForm<LinkForm>({
@@ -208,6 +216,7 @@ const Link: React.FC<LinkProps> = ({
       // Only invalidating when there is no error.
       if (!error) {
         await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
+        window.postMessage({ action: "shortcutsChanged" }, "*");
       }
       setTagMutationLoading(false);
     },
@@ -279,6 +288,7 @@ const Link: React.FC<LinkProps> = ({
       // Only invalidating when there is no error.
       if (!error) {
         await queryClient.invalidateQueries({ queryKey: currentTagQueryKey });
+        window.postMessage({ action: "shortcutsChanged" }, "*");
       }
       setTagMutationLoading(false);
     },
@@ -414,6 +424,7 @@ const Link: React.FC<LinkProps> = ({
                       <ShortcutPicker
                         value={shortcutValue}
                         onChange={setShortcutValue}
+                        disabled={shortcutLimitReached && !shortcutValue}
                       />
                     </div>
 

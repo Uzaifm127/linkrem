@@ -13,8 +13,9 @@ export const GET = async (req: NextRequest) => {
       },
 
       include: {
-        sessionLinks: true,
+        sessionLinks: { orderBy: { createdAt: "asc" } },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({ sessions });

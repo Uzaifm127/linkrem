@@ -9,7 +9,8 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Linkrem",
-  description: "Linkrem is a solution for storing links",
+  description:
+    "Save links, organize them with tags, restore browser sessions and open important pages with keyboard shortcuts.",
   icons: {
     icon: "/app-icon.svg",
   },

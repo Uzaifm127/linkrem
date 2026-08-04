@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { CreateLinkRequest, UpdateLinkRequest } from "@/types/server/request";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
-import { validateShortcut } from "@/lib/shortcut";
+import { maxLinkShortcuts, validateShortcut } from "@/lib/shortcut";
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -25,6 +25,19 @@ export const POST = async (req: NextRequest) => {
     const normalizedShortcut = shortcutValidation.shortcut;
 
     if (normalizedShortcut) {
+      const shortcutCount = await prisma.shortcut.count({
+        where: {
+          shortcutKey: { not: "" },
+          link: { is: { userId: token!.id } },
+        },
+      });
+
+      if (shortcutCount >= maxLinkShortcuts) {
+        throw new Error(
+          `You can assign shortcuts to a maximum of ${maxLinkShortcuts} links.`,
+        );
+      }
+
       const shortcutExists = await prisma.shortcut.findFirst({
         where: {
           shortcutKey: normalizedShortcut,
@@ -126,6 +139,24 @@ export const PUT = async (req: NextRequest) => {
         : shortcutValidation.shortcut;
 
     if (normalizedShortcut) {
+      const isUsingNewShortcutSlot =
+        !currentLink.shortcut?.shortcutKey.trim();
+
+      if (isUsingNewShortcutSlot) {
+        const shortcutCount = await prisma.shortcut.count({
+          where: {
+            shortcutKey: { not: "" },
+            link: { is: { userId: token!.id } },
+          },
+        });
+
+        if (shortcutCount >= maxLinkShortcuts) {
+          throw new Error(
+            `You can assign shortcuts to a maximum of ${maxLinkShortcuts} links.`,
+          );
+        }
+      }
+
       const shortcutExists = await prisma.shortcut.findFirst({
         where: {
           shortcutKey: normalizedShortcut,

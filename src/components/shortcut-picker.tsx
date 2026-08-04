@@ -28,9 +28,14 @@ import { cn } from "@/lib/utils";
 interface ShortcutPickerProps {
   value: string;
   onChange: (shortcut: string) => void;
+  disabled?: boolean;
 }
 
-const ShortcutPicker = ({ value, onChange }: ShortcutPickerProps) => {
+const ShortcutPicker = ({
+  value,
+  onChange,
+  disabled = false,
+}: ShortcutPickerProps) => {
   const [open, setOpen] = useState(false);
   const [draftShortcut, setDraftShortcut] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<
@@ -121,12 +126,19 @@ const ShortcutPicker = ({ value, onChange }: ShortcutPickerProps) => {
         <Button
           type="button"
           variant="outline"
+          disabled={disabled}
           className="w-full justify-start bg-white text-text hover:bg-slate-100 hover:text-text"
         >
           <Keyboard />
-          <span>{value ? formatShortcut(value) : "Add shortcut"}</span>
+          <span>
+            {value
+              ? formatShortcut(value)
+              : disabled
+                ? "Shortcut limit reached"
+                : "Add shortcut"}
+          </span>
           <span className="ml-auto text-xs text-muted-foreground">
-            {value ? "Change" : "Optional"}
+            {value ? "Change" : disabled ? "10 maximum" : "Optional"}
           </span>
         </Button>
       </DialogTrigger>
