@@ -1,5 +1,5 @@
 import { SessionLinks } from "@prisma/client";
-import { Tag } from "emblor";
+import { TagInputValue } from "@/types";
 import { Dispatch, SetStateAction } from "react";
 
 export interface LinkProps {
@@ -20,9 +20,9 @@ export interface SVGProps {
 }
 
 export interface TagProps {
-  tags: Array<Tag>;
-  setInputTags: Dispatch<SetStateAction<Tag[]>>;
-  availableTags?: Array<Tag>;
+  tags: Array<TagInputValue>;
+  setInputTags: Dispatch<SetStateAction<TagInputValue[]>>;
+  availableTags?: Array<TagInputValue>;
 }
 
 export interface SessionProps {

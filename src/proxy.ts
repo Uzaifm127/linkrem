@@ -2,7 +2,7 @@ import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticationErrorMessage } from "@/constants";
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
@@ -46,7 +46,7 @@ export async function middleware(req: NextRequest) {
       } else {
         return NextResponse.json(
           { message: authenticationErrorMessage },
-          { status: 401, headers }
+          { status: 401, headers },
         );
       }
     }
@@ -57,10 +57,10 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/auth/login", req.url));
     }
   } catch (error) {
-    console.error("Error in middleware:", error);
+    console.error("Error in proxy:", error);
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

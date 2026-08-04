@@ -7,6 +7,11 @@ export type LinkForm = z.infer<typeof linkSchema>;
 
 export type SessionForm = z.infer<typeof sessionSchema>;
 
+export interface TagInputValue {
+  id: string;
+  text: string;
+}
+
 export interface LinkData extends LinkForm {
   tags: Array<string>;
   shortcut: string;

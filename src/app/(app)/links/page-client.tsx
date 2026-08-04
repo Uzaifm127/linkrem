@@ -1,7 +1,6 @@
 "use client";
 
 import React, {
-  ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -36,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
-import { LinkData, LinkForm, SessionForm } from "@/types";
+import { LinkData, LinkForm, SessionForm, TagInputValue } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { linkSchema, sessionSchema } from "@/lib/zod-schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +55,6 @@ import {
 } from "@/constants/query-keys";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { TagInput } from "@/components/ui/tag-input";
-import { Tag } from "emblor";
 import { tagParser } from "@/lib/functions";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
@@ -78,13 +76,10 @@ const LinksClient = () => {
   const [selectedSessionLinkIds, setSelectedSessionLinkIds] = useState<
     Array<string>
   >([]);
-  const [inputTags, setInputTags] = useState<Tag[]>([]);
+  const [inputTags, setInputTags] = useState<TagInputValue[]>([]);
   const [shortcut, setShortcut] = useState("");
   const [tagSearch, setTagSearch] = useState("");
   const [filteredTags, setFilteredTags] = useState<string[]>([]);
-  const [filterChips, setFilterChips] = useState<
-    Array<never> | Array<{ name: string; filterApplied: boolean }>
-  >([]);
 
   const { data: session } = useSession();
 
@@ -102,7 +97,6 @@ const LinksClient = () => {
 
   const { toast } = useToast();
 
-  const listData = useRef<ReactNode | null>(null);
   const tagSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const queryClient = useQueryClient();
@@ -398,23 +392,6 @@ const LinksClient = () => {
   ]);
 
   useEffect(() => {
-    if (tagsData?.tags) {
-      const tagsForFilter = tagsData.tags.map((tag) => ({
-        name: tag.tagName,
-        filterApplied: false,
-      }));
-
-      setFilterChips(tagsForFilter);
-    }
-  }, [tagsData?.tags]);
-
-  useEffect(() => {
-    if (!dialogOpen) {
-      setShortcut("");
-    }
-  }, [dialogOpen]);
-
-  useEffect(() => {
     const selectedLinks =
       linkQuery.data?.links
         .filter((link) => selectedSessionLinkIds.includes(link.id))
@@ -524,76 +501,64 @@ const LinksClient = () => {
   }, [linkQuery.data?.links]);
 
   // This submit func will call only after the data of links have been fetched
-  const onSubmit = useCallback(
-    (linkFormData: LinkForm) => {
-      const nameExist = linkData!.links.some(
-        (link) => link.name.toLowerCase() === linkFormData.name.toLowerCase(),
-      );
-      const URLExist = linkData!.links.some(
-        (link) => link.url === linkFormData.url,
-      );
+  const onSubmit = (linkFormData: LinkForm) => {
+    const nameExist = linkData!.links.some(
+      (link) => link.name.toLowerCase() === linkFormData.name.toLowerCase(),
+    );
+    const URLExist = linkData!.links.some(
+      (link) => link.url === linkFormData.url,
+    );
 
-      if (nameExist || URLExist) {
-        return toast({
-          title: `${nameExist ? "Link name" : "Link URL"} already exist`,
-          action: (
-            <ToastAction
-              altText="Try again"
-              onClick={() => {
-                if (nameExist && URLExist) {
-                  linkForm.reset({ name: "", url: "" });
-                } else if (URLExist) {
-                  linkForm.resetField("url");
-                } else if (nameExist) {
-                  linkForm.resetField("name");
-                }
-              }}
-            >
-              Try again
-            </ToastAction>
-          ),
-          variant: "destructive",
-        });
-      }
-
-      const tags = tagParser(inputTags);
-
-      const link = { ...linkFormData, tags, shortcut };
-
-      // Checking duplication link name and url is remaining on server but client side validation done.
-      mutation.mutate(link);
-    },
-    [mutation, linkData, linkForm, toast, inputTags, shortcut],
-  );
-
-  const onSessionSubmit = useCallback(
-    (sessionFormData: SessionForm) => {
-      const selectedLinks = linkQuery.data?.links.filter((link) =>
-        selectedSessionLinkIds.includes(link.id),
-      );
-
-      if (!selectedLinks?.length) {
-        sessionForm.setError("sessionLinks", {
-          message: "Select at least one link",
-        });
-        return;
-      }
-
-      sessionCreateMutation.mutate({
-        name: sessionFormData.name,
-        sessionLinks: selectedLinks.map((link) => ({
-          name: link.name,
-          url: link.url,
-        })),
+    if (nameExist || URLExist) {
+      return toast({
+        title: `${nameExist ? "Link name" : "Link URL"} already exist`,
+        action: (
+          <ToastAction
+            altText="Try again"
+            onClick={() => {
+              if (nameExist && URLExist) {
+                linkForm.reset({ name: "", url: "" });
+              } else if (URLExist) {
+                linkForm.resetField("url");
+              } else if (nameExist) {
+                linkForm.resetField("name");
+              }
+            }}
+          >
+            Try again
+          </ToastAction>
+        ),
+        variant: "destructive",
       });
-    },
-    [
-      linkQuery.data?.links,
-      selectedSessionLinkIds,
-      sessionCreateMutation,
-      sessionForm,
-    ],
-  );
+    }
+
+    const tags = tagParser(inputTags);
+    const link = { ...linkFormData, tags, shortcut };
+
+    // Checking duplication link name and url is remaining on server but client side validation done.
+    mutation.mutate(link);
+  };
+
+  const onSessionSubmit = (sessionFormData: SessionForm) => {
+    const selectedLinks = linkQuery.data?.links.filter((link) =>
+      selectedSessionLinkIds.includes(link.id),
+    );
+
+    if (!selectedLinks?.length) {
+      sessionForm.setError("sessionLinks", {
+        message: "Select at least one link",
+      });
+      return;
+    }
+
+    sessionCreateMutation.mutate({
+      name: sessionFormData.name,
+      sessionLinks: selectedLinks.map((link) => ({
+        name: link.name,
+        url: link.url,
+      })),
+    });
+  };
 
   const openAllSessionLinks = useCallback((links: Array<string>) => {
     window.postMessage(
@@ -613,33 +578,33 @@ const LinksClient = () => {
     </div>
   );
 
-  if (tabValue === "links") {
-    listData.current = linkQuery.isLoading ? (
-      lottieLoader
-    ) : linkData?.links?.length ? (
-      linkData?.links.map((link) => (
-        <Link
-          key={link.id}
-          name={link.name}
-          tags={link.tags}
-          url={link.url}
-          shortcut={link.shortcut?.shortcutKey ?? ""}
-          filteredTags={filteredTags}
-        />
-      ))
-    ) : (
-      <div className="flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center min-h-[200px] p-6">
-        <div>
-          <Sparkles className="w-10 h-10 text-muted-foreground mb-4" />
+  const listData =
+    tabValue === "links" ? (
+      linkQuery.isLoading ? (
+        lottieLoader
+      ) : linkData?.links?.length ? (
+        linkData.links.map((link) => (
+          <Link
+            key={link.id}
+            name={link.name}
+            tags={link.tags}
+            url={link.url}
+            shortcut={link.shortcut?.shortcutKey ?? ""}
+            filteredTags={filteredTags}
+          />
+        ))
+      ) : (
+        <div className="flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center min-h-[200px] p-6">
+          <div>
+            <Sparkles className="w-10 h-10 text-muted-foreground mb-4" />
+          </div>
+          <h3 className="text-lg font-semibold mb-1">No Links Found</h3>
+          <p className="text-sm text-muted-foreground">
+            Create a link to get started.
+          </p>
         </div>
-        <h3 className="text-lg font-semibold mb-1">No Links Found</h3>
-        <p className="text-sm text-muted-foreground">
-          Create a link to get started.
-        </p>
-      </div>
-    );
-  } else {
-    listData.current = sessionQuery.isLoading ? (
+      )
+    ) : sessionQuery.isLoading ? (
       lottieLoader
     ) : sessionData?.sessions?.length ? (
       sessionData?.sessions.map((session) => (
@@ -669,10 +634,14 @@ const LinksClient = () => {
         </p>
       </div>
     );
-  }
 
   const normalizedTagSearch = tagSearch.trim().toLowerCase();
   const activeFilterTags = new Set(filteredTags);
+  const filterChips =
+    tagsData?.tags.map((tag) => ({
+      name: tag.tagName,
+      filterApplied: false,
+    })) ?? [];
   const visibleFilterChips = filterChips
     .filter((tag) => tag.name.toLowerCase().includes(normalizedTagSearch))
     .map((tag) => ({
@@ -798,7 +767,16 @@ const LinksClient = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {/* Dropdown item for opening add link dialog */}
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <Dialog
+                open={dialogOpen}
+                onOpenChange={(open) => {
+                  setDialogOpen(open);
+
+                  if (!open) {
+                    setShortcut("");
+                  }
+                }}
+              >
                 <DialogTrigger asChild>
                   <DropdownMenuItem
                     onClick={(e) => {
@@ -995,7 +973,7 @@ const LinksClient = () => {
                 <Button
                   type="submit"
                   disabled={
-                    sessionCreateMutation.isLoading ||
+                    sessionCreateMutation.isPending ||
                     !linkQuery.data?.links.length
                   }
                 >
@@ -1007,8 +985,8 @@ const LinksClient = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-5 p-5">
-        {listData.current}
+      <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2 2xl:grid-cols-3">
+        {listData}
       </div>
     </div>
   );

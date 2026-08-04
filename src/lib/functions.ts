@@ -1,6 +1,6 @@
-import type { Tag } from "emblor";
+import type { TagInputValue } from "@/types";
 
-export const tagParser = (tags: Tag[]): Array<string> => {
+export const tagParser = (tags: TagInputValue[]): Array<string> => {
   return tags.map((tag) => tag.text);
 };
 

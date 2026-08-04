@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -25,7 +25,7 @@ import { Edit, ExternalLink, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ToastAction } from "./ui/toast";
 import { fetcher } from "@/lib/fetcher";
-import { LinkDataForUpdate, LinkForm } from "@/types";
+import { LinkDataForUpdate, LinkForm, TagInputValue } from "@/types";
 import { AllLinksAPIResponse } from "@/types/server/response";
 import { tagParser } from "@/lib/functions";
 import { useToast } from "@/hooks/use-toast";
@@ -53,7 +53,6 @@ import { useAppStore } from "@/store";
 import Cookies from "js-cookie";
 import { linkDeletePopupCookieKey } from "@/constants/cookie-keys";
 import { getTagQueryKey, linkQueryKey } from "@/constants/query-keys";
-import { Tag } from "emblor";
 import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
@@ -82,7 +81,7 @@ const Link: React.FC<LinkProps> = ({
   const [linkDeleteDialogOpen, setLinkDeleteDialogOpen] = useState(false);
   const [linkDeletePopupCheck, setLinkDeletePopupCheck] = useState(false);
   const [shortcutValue, setShortcutValue] = useState(shortcut);
-  const [inputTags, setInputTags] = useState<Tag[]>(() => {
+  const [inputTags, setInputTags] = useState<TagInputValue[]>(() => {
     const tagsState = tags.map((tag) => ({ id: uuid(), text: tag.tagName }));
 
     return tagsState;
@@ -295,40 +294,35 @@ const Link: React.FC<LinkProps> = ({
   });
 
   // Link data must be there when we submit for update query
-  const onSubmit = useCallback(
-    (updatedLinkData: LinkForm) => {
-      // Mutation happens when there is a change
-      const nameChange = name !== updatedLinkData.name;
-      const URLChange = url !== updatedLinkData.url;
+  const onSubmit = (updatedLinkData: LinkForm) => {
+    // Mutation happens when there is a change
+    const nameChange = name !== updatedLinkData.name;
+    const URLChange = url !== updatedLinkData.url;
 
-      const currentTags = inputTags.map((tag) => tag.text.trim());
+    const currentTags = inputTags.map((tag) => tag.text.trim());
+    const oldTags = tags.map((tag) => tag.tagName.trim());
 
-      const oldTags = tags.map((tag) => tag.tagName.trim());
+    const tagChange = JSON.stringify(oldTags) !== JSON.stringify(currentTags);
+    const shortcutChange = shortcut !== shortcutValue;
 
-      const tagChange = JSON.stringify(oldTags) !== JSON.stringify(currentTags);
-      const shortcutChange = shortcut !== shortcutValue;
+    if (nameChange || URLChange || tagChange || shortcutChange) {
+      // Checking duplication link name and url is remaining on server and on the client side we have to check whether the data filled is already existed or not among all links.
+      const tags = tagParser(inputTags);
 
-      if (nameChange || URLChange || tagChange || shortcutChange) {
-        // Checking duplication link name and url is remaining on server and on the client side we have to check whether the data filled is already existed or not among all links.
+      const updatedLink = {
+        ...updatedLinkData,
+        tags,
+        nameChange,
+        URLChange,
+        tagChange,
+        shortcut: shortcutValue,
+      };
 
-        const tags = tagParser(inputTags);
-
-        const updatedLink = {
-          ...updatedLinkData,
-          tags,
-          nameChange,
-          URLChange,
-          tagChange,
-          shortcut: shortcutValue,
-        };
-
-        updateMutation.mutate(updatedLink);
-      } else {
-        setEditDialogOpen(false);
-      }
-    },
-    [updateMutation, name, tags, url, inputTags, shortcut, shortcutValue]
-  );
+      updateMutation.mutate(updatedLink);
+    } else {
+      setEditDialogOpen(false);
+    }
+  };
 
   return (
     <Card
